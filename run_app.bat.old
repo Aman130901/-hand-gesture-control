@@ -1,0 +1,4 @@
+@echo off
+echo Starting Hand Gesture Control...
+py -3.11 main.py
+pause

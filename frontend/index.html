@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Gesture Control</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: 'var(--color-bg)',
+                        surface: 'var(--color-surface)',
+                        surface2: 'var(--color-surface-2)',
+                        accent: 'var(--color-accent)', // Dynamic
+                        text: 'var(--color-text)',
+                    },
+                    boxShadow: {
+                        'glow': '0 0 20px rgba(var(--color-accent-rgb), 0.3)',
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        html {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            --color-accent: #6366f1;
+            --color-accent-rgb: 99, 102, 241;
+
+            /* Dark Theme Defaults */
+            --color-bg: #030712;
+            --color-surface: #0f172a;
+            --color-surface-2: #1e293b;
+            --color-text: #f8fafc;
+        }
+
+        /* Light Theme Overrides */
+        html.light-theme {
+            --color-bg: #f1f5f9;
+            --color-surface: #ffffff;
+            --color-surface-2: #e2e8f0;
+            --color-text: #0f172a;
+        }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-nav {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Animations */
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 25px rgba(var(--color-accent-rgb), 0.5);
+            }
+        }
+
+        .animate-pop-in {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .fade-enter-active,
+        .fade-leave-active {
+            transition: opacity 0.3s ease;
+        }
+
+        .fade-enter-from,
+        .fade-leave-to {
+            opacity: 0;
+        }
+
+        .list-enter-active,
+        .list-leave-active {
+            transition: all 0.3s ease;
+        }
+
+        .list-enter-from,
+        .list-leave-to {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+
+        .pop-enter-active,
+        .pop-leave-active {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .pop-enter-from,
+        .pop-leave-to {
+            opacity: 0;
+            transform: scale(0.9) translateY(10px);
+        }
+
+        /* High Contrast Scrollbar (Preserved) */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(var(--color-accent-rgb), 0.05);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(var(--color-accent-rgb), 0.2);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+            transition: all 0.3s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(var(--color-accent-rgb), 0.5);
+            background-clip: content-box;
+        }
+
+        /* Light mode specific scrollbar tweak */
+        .light-theme ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .light-theme ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* Fix for Select Dropdown in Dark Mode */
+        select option,
+        select optgroup {
+            background-color: #0f172a;
+            color: white;
+        }
+    </style>
+</head>
+
+<body class="h-[100dvh] w-full flex flex-col overflow-hidden bg-dark text-white antialiased">
+
+    <div id="app" class="flex-1 flex flex-col">
+        <!-- Navbar -->
+        <nav class="glass-nav h-16 flex items-center justify-between px-6 z-50">
+            <div class="flex items-center gap-3">
+                <div class="relative group cursor-pointer" @click="setMode('DETECT')">
+                    <div
+                        class="absolute inset-0 bg-accent/20 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                    </div>
+                    <i data-lucide="hand" class="w-8 h-8 text-accent relative z-10"></i>
+                </div>
+                <h1
+                    class="font-bold text-xl tracking-wide bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                    HAND CONTROL</h1>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <!-- Status Indicators -->
+                <div class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface border border-white/5 mr-2">
+                    <div class="w-2 h-2 rounded-full animate-pulse"
+                        :class="status.is_hand_visible ? 'bg-green-400' : 'bg-red-400'"></div>
+                    <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        {{ status.is_hand_visible ? 'Hand Detected' : 'No Hand' }}
+                    </span>
+                </div>
+
+                <button @click="showTrainingModal = true"
+                    class="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 border border-white/10 bg-surface hover:bg-white/10 text-gray-400 mr-2">
+                    <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+                    TRAINING
+                </button>
+
+                <button @click="showDatasetModal = true"
+                    class="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 border border-white/10 bg-surface hover:bg-white/10 text-gray-400 mr-2">
+                    <i data-lucide="database" class="w-4 h-4"></i>
+                    DATASET
+                </button>
+
+                <!-- Theme Selector -->
+                <div class="flex items-center gap-2 mr-2">
+                    <span
+                        class="text-[10px] text-gray-500 font-bold uppercase tracking-wider hidden md:block">Skin</span>
+                    <select @change="setTheme($event.target.value)"
+                        class="bg-surface border border-white/10 text-xs text-gray-400 rounded-md px-2 py-1 outline-none focus:border-blue-500/50 transition-colors hover:text-white cursor-pointer">
+                        <option value="DEFAULT">Standard</option>
+                        <option value="CYBERPUNK">Cyberpunk</option>
+                        <option value="MATRIX">Matrix</option>
+                        <option value="GOLD">Gold</option>
+                    </select>
+                </div>
+
+                <!-- Mode Controls -->
+                <div class="flex gap-2">
+
+
+                    <button @click="setMode(status.mode === 'MOUSE' ? 'DETECT' : 'MOUSE')"
+                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 border"
+                        :class="status.mode === 'MOUSE' 
+                            ? 'bg-emerald-500 text-white border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
+                            : 'bg-surface hover:bg-white/10 text-gray-400 border-white/10'">
+                        <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i>
+                        {{ status.mode === 'MOUSE' ? 'MOUSE ACTIVE' : 'VIRTUAL MOUSE' }}
+                    </button>
+
+
+                    <button @click="setMode('DETECT')"
+                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 border border-white/10"
+                        :class="status.mode === 'DETECT' ? 'bg-red-500 text-white shadow-glow border-red-500' : 'bg-surface hover:bg-white/10 text-gray-400'">
+                        <i data-lucide="square" class="w-4 h-4 fill-current"></i>
+                        STOP
+                    </button>
+
+                    <button @click="showSettingsModal = true"
+                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 border border-white/10 bg-surface hover:bg-white/10 text-gray-400">
+                        <i data-lucide="settings" class="w-4 h-4"></i>
+                        SETTINGS
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="flex-1 flex overflow-hidden">
+
+            <!-- Left Sidebar: Controls & List -->
+            <aside class="w-80 glass flex flex-col z-10 h-full min-h-0">
+                <div class="p-6 border-b border-white/5 space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <button @click="setMode('DETECT')"
+                            :class="status.mode === 'DETECT' ? 'bg-accent text-white shadow-glow' : 'bg-surface2 text-gray-400 hover:text-white'"
+                            class="h-10 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="play-circle" class="w-4 h-4"></i> Detect
+                        </button>
+                        <button @click="setMode('RECORD')"
+                            :class="status.mode === 'RECORD' ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/20' : 'bg-surface2 text-gray-400 hover:text-white'"
+                            class="h-10 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="scan-face" class="w-4 h-4"></i> Train
+                        </button>
+                    </div>
+                </div>
+
+                <div id="mapping-sidebar" class="flex-1 overflow-y-scroll p-4 space-y-2 pr-2 min-h-0">
+                    <div class="flex items-center justify-between mb-2 px-2">
+                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">Mappings</span>
+                        <span class="text-xs text-gray-600">{{ gestures.length }} gestures</span>
+                    </div>
+
+                    <div v-if="gestures.length === 0"
+                        class="p-8 text-center border-2 border-dashed border-white/5 rounded-xl">
+                        <i data-lucide="ghost" class="w-8 h-8 text-gray-700 mx-auto mb-2"></i>
+                        <p class="text-xs text-gray-500">No gestures yet.</p>
+                        <p class="text-xs text-gray-600">Switch to Train mode to start.</p>
+                    </div>
+
+                    <transition-group name="list">
+                        <div v-for="g in gestures" :key="g.name"
+                            class="group bg-surface2/40 hover:bg-surface2/80 border border-white/5 rounded-xl p-3 transition-all duration-200">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-8 bg-accent/20 rounded-full"></div>
+                                    <span class="font-medium text-sm text-white">{{ g.name }}</span>
+                                </div>
+                                <button @click.stop="renameGesture(g.name)"
+                                    class="p-2 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-white rounded-lg transition-colors mr-1"
+                                    title="Rename Gesture">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </button>
+                                <button @click="openGallery(g.name)"
+                                    class="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition-colors mr-1"
+                                    title="View Samples">
+                                    <i data-lucide="image" class="w-4 h-4"></i>
+                                </button>
+                                <button @click.stop="addMoreSamples(g.name)"
+                                    class="p-2 bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white rounded-lg transition-colors mr-1"
+                                    title="Add More Samples">
+                                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                                </button>
+                                <button @click.stop="deleteGesture(g.name)"
+                                    class="p-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-colors"
+                                    title="Delete Gesture">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+
+                            <div class="flex flex-col gap-2 w-full">
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="bg-black/30 px-2 py-1 rounded text-[10px] text-gray-400 whitespace-nowrap">{{
+                                        g.samples }} samples</span>
+                                    <div class="flex-1 relative">
+                                        <select :value="getSelectValue(mapping[g.name])"
+                                            @change="handleActionChange(g.name, $event)"
+                                            class="w-full bg-surface2 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-accent transition appearance-none cursor-pointer">
+                                            <option value="">(None)</option>
+                                            <optgroup v-for="(groupActions, groupName) in categorizedActions"
+                                                :label="groupName" :key="groupName">
+                                                <option v-for="act in groupActions" :value="act" :key="act">{{
+                                                    formatActionName(act) }}</option>
+                                            </optgroup>
+                                        </select>
+                                        <i data-lucide="chevron-down"
+                                            class="w-3 h-3 text-gray-500 absolute right-2 top-1.5 pointer-events-none"></i>
+                                    </div>
+                                </div>
+
+                                <!-- Custom Command Input -->
+                                <div v-if="getSelectValue(mapping[g.name]) === 'custom_command'"
+                                    class="relative animate-pop-in mt-1">
+                                    <input type="text" :value="getCustomValue(mapping[g.name])"
+                                        @input="updateCustomCommand(g.name, $event.target.value)"
+                                        placeholder="e.g. calc"
+                                        class="w-full bg-black/40 border border-accent/50 rounded px-2 py-1.5 text-xs text-accent placeholder-gray-600 outline-none focus:ring-1 focus:ring-accent">
+                                </div>
+                            </div>
+                        </div>
+                    </transition-group>
+                </div>
+            </aside>
+
+            <!-- Main Stage -->
+            <main class="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
+
+                <div
+                    class="relative w-full h-full rounded-none overflow-hidden video-container group flex items-center justify-center">
+                    <img src="/video_feed" class="max-w-full max-h-full object-contain">
+
+                    <!-- Detected Gesture Overlay -->
+                    <div class="absolute inset-0 pointer-events-none flex flex-col justify-end items-center pb-12 transition-opacity duration-300"
+                        :class="status.detected_gesture ? 'opacity-100' : 'opacity-0'">
+                        <div class="glass px-8 py-4 rounded-2xl shadow-glow text-center transform transition-all duration-300"
+                            :class="status.detected_gesture ? 'translate-y-0 scale-100' : 'translate-y-4 scale-95'">
+                            <p class="text-xs font-bold text-accent uppercase tracking-[0.2em] mb-1">Detected</p>
+                            <h2
+                                class="text-4xl font-black bg-gradient-to-br from-white to-gray-400 bg-clip-text text-transparent">
+                                {{ status.detected_gesture }}
+                            </h2>
+                        </div>
+                    </div>
+
+                    <!-- Action Triggered Toast -->
+                    <div class="absolute top-8 left-1/2 -translate-x-1/2">
+                        <transition name="pop">
+                            <div v-if="status.last_action && Date.now() / 1000 - status.last_action_time < 2"
+                                class="bg-emerald-500/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 animate-pop-in">
+                                <i data-lucide="zap" class="w-5 h-5 fill-current"></i>
+                                <span class="font-bold tracking-wide">{{ status.last_action }}</span>
+                            </div>
+                        </transition>
+                    </div>
+
+                    <!-- Sci-Fi HUD -->
+                    <div
+                        class="absolute top-6 right-6 flex flex-col items-end gap-2 pointer-events-none font-mono text-xs z-40">
+                        <div
+                            class="flex items-center gap-2 text-emerald-400 bg-black/50 backdrop-blur px-3 py-1 rounded border border-emerald-500/30">
+                            <span class="opacity-50">FPS</span>
+                            <span class="font-bold">{{ status.fps || 0 }}</span>
+                        </div>
+                        <div
+                            class="flex items-center gap-2 text-cyan-400 bg-black/50 backdrop-blur px-3 py-1 rounded border border-cyan-500/30">
+                            <span class="opacity-50">STABILITY</span>
+                            <!-- Max stability is usually 5 frames or configured value. Assuming 5-10. multiplying by 20% to fill. -->
+                            <div
+                                class="w-16 h-1.5 bg-cyan-900/50 rounded-full overflow-hidden border border-cyan-500/20">
+                                <div class="h-full bg-cyan-400 shadow-[0_0_10px_cyan] transition-all duration-300"
+                                    :style="{width: Math.min(((status.stability_score || 0) * 20), 100) + '%'}"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Record Mode Overlay -->
+                <!-- Use a single transition wrapper for the whole overlay -->
+                <transition name="fade">
+                    <div v-if="status.mode === 'RECORD'"
+                        class="absolute inset-0 bg-black/40 z-30 flex items-start justify-start pl-4 pt-20">
+
+                        <transition name="pop" appear>
+                            <div
+                                class="glass p-6 rounded-2xl border border-white/10 shadow-2xl flex flex-col gap-4 w-72 animate-pop-in">
+                                <div class="flex items-center gap-3 border-b border-white/10 pb-4">
+                                    <div
+                                        class="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
+                                        <i data-lucide="scan-face" class="w-5 h-5 text-white"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-lg text-white">
+                                            {{ isAddingToExisting ? 'Adding Samples' : 'New Gesture' }}
+                                        </h3>
+                                        <p class="text-xs text-gray-400">
+                                            {{ isAddingToExisting ? 'Improving accuracy' : 'Train a new command' }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Gesture
+                                        Name</label>
+                                    <input type="text" v-model="newGestureName" placeholder="e.g. Thumbs Up"
+                                        :readonly="isAddingToExisting"
+                                        :class="{'opacity-50 cursor-not-allowed': isAddingToExisting}"
+                                        class="bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:border-orange-500 transition-colors">
+                                </div>
+
+                                <button @click="saveSample" :disabled="!newGestureName"
+                                    class="group relative overflow-hidden bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-900/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none">
+                                    <span class="relative z-10 flex items-center justify-center gap-2">
+                                        <i data-lucide="camera" class="w-5 h-5"></i> Capture Sample
+                                    </span>
+                                    <div
+                                        class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                                    </div>
+                                </button>
+
+                                <div class="flex flex-col gap-2 mt-2">
+                                    <button @click="setMode('DETECT'); openGallery(newGestureName)"
+                                        class="text-xs text-blue-400 hover:text-blue-300 transition-colors text-center font-bold">
+                                        Finish & View Gallery
+                                    </button>
+                                    <button @click="setMode('DETECT')"
+                                        class="text-xs text-gray-500 hover:text-white transition-colors text-center">
+                                        Finish & Return (Home)
+                                    </button>
+                                </div>
+                            </div>
+                        </transition>
+                    </div>
+                </transition>
+            </main>
+            <!-- Gallery Modal -->
+            <transition name="fade">
+                <div v-if="showGalleryModal"
+                    class="absolute inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-8">
+                    <div
+                        class="bg-surface border border-white/10 rounded-2xl w-full max-w-4xl h-[80vh] flex flex-col shadow-2xl overflow-hidden">
+                        <!-- Header -->
+                        <div class="p-6 border-b border-white/10 flex items-center justify-between bg-surface2/50">
+                            <div>
+                                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="image" class="w-5 h-5 text-blue-400"></i>
+                                    Sample Gallery: <span class="text-blue-400">{{ selectedGestureForGallery }}</span>
+                                </h2>
+                                <p class="text-xs text-gray-400 mt-1">{{ galleryImages.length }} samples captured</p>
+                            </div>
+                            <button @click="closeGallery"
+                                class="p-2 hover:bg-white/10 rounded-full transition-colors order-last">
+                                <i data-lucide="x" class="w-6 h-6 text-gray-400 hover:text-white"></i>
+                            </button>
+
+                            <!-- Capture New Button -->
+                            <button @click="addMoreSamples(selectedGestureForGallery); closeGallery()"
+                                class="ml-auto mr-4 px-3 py-1.5 bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-2 border border-orange-500/20">
+                                <i data-lucide="plus-circle" class="w-3 h-3"></i> Capture New
+                            </button>
+                        </div>
+
+                        <!-- Grid -->
+                        <div class="flex-1 overflow-y-auto p-6 bg-black/40">
+                            <!-- Loading Spinner -->
+                            <div v-if="isLoadingGallery" class="h-full flex flex-col items-center justify-center">
+                                <i data-lucide="loader-2" class="w-12 h-12 text-accent animate-spin mb-4"></i>
+                                <p class="text-xs text-gray-500">Loading samples...</p>
+                            </div>
+
+                            <div v-else-if="galleryImages.length === 0"
+                                class="h-full flex flex-col items-center justify-center text-gray-500">
+                                <i data-lucide="camera-off" class="w-12 h-12 mb-4 opacity-50"></i>
+                                <p>No images saved for this gesture.</p>
+                                <p class="text-xs mt-2">Try capturing new samples.</p>
+                            </div>
+                            <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                <div v-for="(img, idx) in galleryImages" :key="idx" @click="openLightbox(idx)"
+                                    class="group relative aspect-video bg-black/50 rounded-lg overflow-hidden border border-white/5 hover:border-blue-500/50 transition-all cursor-pointer">
+                                    <img :src="img" class="w-full h-full object-cover">
+                                    <div
+                                        class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2">
+                                        <span class="text-[10px] text-gray-300 font-mono">Sample #{{ idx + 1 }}</span>
+                                        <button @click.stop="deleteSample(selectedGestureForGallery, img)"
+                                            class="p-1.5 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded transition-colors"
+                                            title="Delete Sample">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+            <!-- Rename Modal -->
+            <transition name="fade">
+                <div v-if="showRenameModal"
+                    class="absolute inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div
+                        class="glass p-6 rounded-2xl border border-white/10 shadow-2xl flex flex-col gap-4 w-80 animate-pop-in">
+                        <div class="flex items-center gap-3 border-b border-white/10 pb-4">
+                            <div
+                                class="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center shadow-lg shadow-yellow-500/30">
+                                <i data-lucide="pencil" class="w-5 h-5 text-white"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg text-white">Rename Gesture</h3>
+                                <p class="text-xs text-gray-400">Enter a new name</p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">New Name</label>
+                            <input type="text" v-model="renameInput" @keyup.enter="confirmRename"
+                                class="bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:border-yellow-500 transition-colors"
+                                placeholder="Gesture Name">
+                        </div>
+
+                        <div class="flex gap-2 mt-2">
+                            <button @click="showRenameModal = false"
+                                class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+                                Cancel
+                            </button>
+                            <button @click="confirmRename" :disabled="!renameInput || renameInput === gestureToRename"
+                                class="flex-1 bg-yellow-500 text-black font-bold py-2 rounded-lg shadow-lg shadow-yellow-500/20 hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+            <!-- Lightbox Overlay -->
+            <transition name="fade">
+                <div v-if="lightboxIndex !== null"
+                    class="fixed inset-0 z-[60] bg-black flex items-center justify-center">
+                    <button @click="closeLightbox"
+                        class="absolute top-4 right-4 p-2 text-gray-400 hover:text-white z-50 rounded-full hover:bg-white/10">
+                        <i data-lucide="x" class="w-8 h-8"></i>
+                    </button>
+
+                    <button @click="prevImage"
+                        class="absolute left-4 p-4 text-gray-400 hover:text-white z-50 rounded-full hover:bg-white/10 transition-colors">
+                        <i data-lucide="chevron-left" class="w-12 h-12"></i>
+                    </button>
+
+                    <div class="relative w-full h-full p-12 flex items-center justify-center">
+                        <img :src="currentLightboxImage"
+                            class="max-w-full max-h-full object-contain shadow-2xl rounded-lg animate-pop-in">
+                        <div
+                            class="absolute bottom-8 bg-black/50 backdrop-blur px-4 py-2 rounded-full text-white font-mono text-sm border border-white/10">
+                            {{ lightboxIndex + 1 }} / {{ galleryImages.length }}
+                        </div>
+
+                        <button @click="deleteSampleInLightbox"
+                            class="absolute bottom-8 right-12 p-3 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-full transition-colors border border-red-500/30"
+                            title="Delete this sample">
+                            <i data-lucide="trash-2" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+
+                    <button @click="nextImage"
+                        class="absolute right-4 p-4 text-gray-400 hover:text-white z-50 rounded-full hover:bg-white/10 transition-colors">
+                        <i data-lucide="chevron-right" class="w-12 h-12"></i>
+                    </button>
+                </div>
+            </transition>
+            <!-- Settings Modal -->
+            <transition name="fade">
+                <div v-if="showSettingsModal"
+                    class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div class="bg-surface border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4"
+                        @click.stop>
+                        <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                            <i data-lucide="settings" class="w-5 h-5 text-accent"></i>
+                            Camera Settings
+                        </h3>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Interface Theme</label>
+                                <select v-model="uiTheme"
+                                    class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-accent">
+                                    <option value="DARK">Dark Mode (Default)</option>
+                                    <option value="LIGHT">Light Mode</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Resolution</label>
+                                <select v-model="cameraSettings.resolution"
+                                    class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-accent">
+                                    <option value="1280x720">High Definition (1280x720) - Clearer</option>
+                                    <option value="640x480">Standard Definition (640x480) - Faster</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">Target Framerate</label>
+                                <select v-model="cameraSettings.fps"
+                                    class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-accent">
+                                    <option :value="30">30 FPS (Stable)</option>
+                                    <option :value="60">60 FPS (Fluid)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2 pt-2">
+                            <button @click="showSettingsModal = false"
+                                class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+                                Cancel
+                            </button>
+                            <button @click="saveSettings"
+                                class="flex-1 bg-accent text-white font-bold py-2 rounded-lg hover:brightness-110 shadow-glow transition-all">
+                                Apply Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+            <!-- Training Modal -->
+            <transition name="fade">
+                <div v-if="showTrainingModal"
+                    class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div class="bg-surface border border-white/10 rounded-2xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[85vh]"
+                        @click.stop>
+
+                        <div class="flex items-center justify-between mb-4 flex-shrink-0">
+                            <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                                <i data-lucide="graduation-cap" class="w-5 h-5 text-accent"></i>
+                                Training Center
+                            </h3>
+                            <button @click="showTrainingModal = false"
+                                class="text-gray-400 hover:text-white transition-colors">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar">
+                            <!-- Training Quality Stats -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="p-4 rounded-xl bg-accent/5 border border-accent/20">
+                                    <h4 class="text-xs font-bold text-accent uppercase tracking-widest mb-2">Well
+                                        Trained</h4>
+                                    <p class="text-2xl font-bold text-white">{{ gestures.filter(g => g.samples >=
+                                        50).length }}</p>
+                                    <p class="text-[10px] text-gray-500 mt-1">Gestures with >50 samples</p>
+                                </div>
+                                <div class="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                                    <h4 class="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">Needs
+                                        Data</h4>
+                                    <p class="text-2xl font-bold text-white">{{ gestures.filter(g => g.samples <
+                                            50).length }}</p>
+                                            <p class="text-[10px] text-gray-500 mt-1">Add more variety for better
+                                                results</p>
+                                </div>
+                            </div>
+
+                            <!-- Guides -->
+                            <div class="space-y-4">
+                                <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="lightbulb" class="w-4 h-4 text-amber-400"></i>
+                                    Pro Tips for Best Results
+                                </h4>
+
+                                <div class="grid grid-cols-1 gap-3">
+                                    <!-- Consistent Lighting -->
+                                    <div class="p-4 rounded-lg bg-surface2/50 border border-white/5 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <i data-lucide="sun" class="w-4 h-4 text-blue-400"></i>
+                                                <h5 class="text-sm font-bold text-white">Consistent Lighting</h5>
+                                            </div>
+                                            <span class="text-[10px] font-bold"
+                                                :class="lightingPct > 70 ? 'text-emerald-400' : 'text-amber-400'">
+                                                {{ lightingPct > 70 ? 'GOOD' : 'ADJUST' }}
+                                            </span>
+                                        </div>
+                                        <div class="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
+                                            <div class="h-full bg-blue-500 transition-all duration-500"
+                                                :style="{ width: lightingPct + '%' }"></div>
+                                        </div>
+                                        <p class="text-[10px] text-gray-500">Ensure your hand is clearly visible and not
+                                            in
+                                            deep shadow.</p>
+                                    </div>
+
+                                    <!-- Varied Distance -->
+                                    <div class="p-4 rounded-lg bg-surface2/50 border border-white/5 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <i data-lucide="maximize" class="w-4 h-4 text-purple-400"></i>
+                                                <h5 class="text-sm font-bold text-white">Varied Distance</h5>
+                                            </div>
+                                            <span class="text-[10px] font-bold"
+                                                :class="distancePct > 80 ? 'text-emerald-400' : 'text-purple-400'">
+                                                {{ Math.round(distancePct) }}%
+                                            </span>
+                                        </div>
+                                        <div class="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
+                                            <div class="h-full bg-purple-500 transition-all duration-500"
+                                                :style="{ width: distancePct + '%' }"></div>
+                                        </div>
+                                        <p class="text-[10px] text-gray-500">Move your hand closer and further from the
+                                            camera while recording.</p>
+                                    </div>
+
+                                    <!-- Slight Angles -->
+                                    <div class="p-4 rounded-lg bg-surface2/50 border border-white/5 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <i data-lucide="rotate-3d" class="w-4 h-4 text-emerald-400"></i>
+                                                <h5 class="text-sm font-bold text-white">Slight Angles</h5>
+                                            </div>
+                                            <span class="text-[10px] font-bold"
+                                                :class="anglePct > 80 ? 'text-emerald-400' : 'text-emerald-400'">
+                                                {{ Math.round(anglePct) }}%
+                                            </span>
+                                        </div>
+                                        <div class="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
+                                            <div class="h-full bg-emerald-500 transition-all duration-500"
+                                                :style="{ width: anglePct + '%' }"></div>
+                                        </div>
+                                        <p class="text-[10px] text-gray-500">Rotate your wrist slightly to help the AI
+                                            recognize you from different sides.</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between px-1">
+                                    <button @click="resetTrainingMetrics"
+                                        class="text-[10px] text-gray-500 hover:text-white transition-colors flex items-center gap-1">
+                                        <i data-lucide="refresh-cw" class="w-3 h-3"></i> Reset Exploration Range
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="p-4 rounded-xl bg-surface2 border border-white/5 text-center">
+                                <p class="text-sm text-gray-400 mb-3 italic font-medium">Ready to add something new?</p>
+                                <button @click="setMode('RECORD'); showTrainingModal = false;"
+                                    class="w-full bg-accent text-white font-bold py-3 rounded-xl hover:brightness-110 shadow-glow transition-all flex items-center justify-center gap-2">
+                                    <i data-lucide="circle-dot" class="w-4 h-4"></i>
+                                    START NEW RECORDING
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </transition>
+
+            <!-- Dataset Modal -->
+            <transition name="fade">
+                <div v-if="showDatasetModal"
+                    class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div class="bg-surface border border-white/10 rounded-2xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[85vh]"
+                        @click.stop>
+
+                        <div class="flex items-center justify-between mb-4 flex-shrink-0">
+                            <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                                <i data-lucide="database" class="w-5 h-5 text-accent"></i>
+                                Gesture Datasets
+                            </h3>
+                            <button @click="showDatasetModal = false"
+                                class="text-gray-400 hover:text-white transition-colors">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                            <div v-if="gestures.length === 0"
+                                class="p-8 text-center border border-dashed border-white/10 rounded-lg">
+                                <p class="text-gray-500">No datasets found.</p>
+                            </div>
+
+                            <div v-for="g in gestures" :key="g.name"
+                                class="flex items-center justify-between p-4 bg-surface2/50 rounded-lg border border-white/5 hover:border-accent/30 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="w-10 h-10 bg-accent/20 rounded-full flex items-center justify-center text-accent font-bold">
+                                        {{ g.name.substring(0,2).toUpperCase() }}
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-white">{{ g.name }}</h4>
+                                        <p class="text-xs text-gray-400">{{ g.samples }} samples</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="openGallery(g.name)"
+                                        class="px-3 py-1.5 rounded-lg bg-surface hover:bg-surface2 text-xs font-medium text-white border border-white/10 flex items-center gap-1 transition-all">
+                                        <i data-lucide="image" class="w-3 h-3"></i> View Images
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-white/10 flex justify-end">
+                            <div class="text-xs text-gray-500">
+                                Total Gestures: {{ gestures.length }}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </transition>
+
+            <!-- PDF Split Modal -->
+            <transition name="pop">
+                <div v-if="showSplitPdfModal"
+                    class="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                    <div
+                        class="glass p-8 rounded-3xl border border-white/10 shadow-2xl flex flex-col gap-6 w-full max-w-md animate-pop-in">
+                        <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-accent/20 flex items-center justify-center shadow-glow">
+                                    <i data-lucide="scissors" class="w-6 h-6 text-accent"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-xl text-white">Split PDF</h3>
+                                    <p class="text-xs text-gray-400">Extract specific pages with ease</p>
+                                </div>
+                            </div>
+                            <button @click="showSplitPdfModal = false"
+                                class="text-gray-500 hover:text-white transition-colors">
+                                <i data-lucide="x" class="w-6 h-6"></i>
+                            </button>
+                        </div>
+
+                        <!-- File Upload Area -->
+                        <div class="relative group cursor-pointer" @click="$refs.pdfInput.click()">
+                            <input type="file" ref="pdfInput" class="hidden" accept=".pdf"
+                                @change="handlePdfFileUpload">
+                            <div
+                                class="border-2 border-dashed border-white/10 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 group-hover:border-accent/50 group-hover:bg-accent/5 transition-all">
+                                <i data-lucide="file-text"
+                                    class="w-10 h-10 text-gray-600 group-hover:text-accent transition-colors"></i>
+                                <span
+                                    class="text-sm font-medium text-gray-400 group-hover:text-white transition-colors">
+                                    {{ selectedPdfFile ? selectedPdfFile.name : 'Click to select PDF' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Range Inputs -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="flex flex-col gap-2">
+                                <label class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Start
+                                    Page</label>
+                                <input type="number" v-model.number="splitRange.start" min="1"
+                                    class="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent transition-colors outline-none">
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">End
+                                    Page</label>
+                                <input type="number" v-model.number="splitRange.end" :min="splitRange.start"
+                                    class="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-accent transition-colors outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button @click="performPdfSplit" :disabled="!selectedPdfFile || isSplitting"
+                            class="relative h-14 bg-accent hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-glow transition-all overflow-hidden">
+                            <div v-if="isSplitting" class="flex items-center justify-center gap-2">
+                                <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
+                                <span>Processing...</span>
+                            </div>
+                            <div v-else class="flex items-center justify-center gap-2">
+                                <i data-lucide="zap" class="w-5 h-5"></i>
+                                <span>SPLIT PDF NOW</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </transition>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, reactive, computed, watch, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const status = reactive({
+                    mode: 'DETECT',
+                    detected_gesture: null,
+                    last_action: null,
+                    last_action_time: 0,
+                    is_hand_visible: false,
+                    map_mode_active: false,
+                    theme: 'DEFAULT',
+                    training_metrics: {
+                        brightness: 0,
+                        size: 0,
+                        angle: 0,
+                        size_range: [1.0, 0.0],
+                        angle_range: [180.0, -180.0]
+                    }
+                });
+
+                const gestures = ref([]);
+                const actions = ref([]);
+                const mapping = ref({});
+                const newGestureName = ref("");
+                const isAddingToExisting = ref(false); // New state
+
+                // Rename Modal State
+                const showRenameModal = ref(false);
+                const gestureToRename = ref("");
+                const renameInput = ref("");
+
+                // Datset Modal State
+                const showDatasetModal = ref(false);
+
+                // Training Modal State
+                const showTrainingModal = ref(false);
+
+                // Settings State
+                const showSettingsModal = ref(false);
+                const uiTheme = ref('DARK'); // 'DARK' or 'LIGHT'
+
+                // PDF Split State
+                const showSplitPdfModal = ref(false);
+                const selectedPdfFile = ref(null);
+                const splitRange = reactive({ start: 1, end: 1 });
+                const isSplitting = ref(false);
+
+                const handlePdfFileUpload = (event) => {
+                    const file = event.target.files[0];
+                    if (file && file.type === 'application/pdf') {
+                        selectedPdfFile.value = file;
+                    }
+                };
+
+                const performPdfSplit = async () => {
+                    if (!selectedPdfFile.value) return;
+                    isSplitting.value = true;
+
+                    const formData = new FormData();
+                    formData.append('pdf', selectedPdfFile.value);
+                    formData.append('start_page', splitRange.start);
+                    formData.append('end_page', splitRange.end);
+
+                    try {
+                        const res = await fetch('/api/split-pdf', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            alert(data.message);
+                            showSplitPdfModal.value = false;
+                        } else {
+                            alert("Error: " + data.error);
+                        }
+                    } catch (e) {
+                        alert("Failed to connect to server");
+                    } finally {
+                        isSplitting.value = false;
+                    }
+                };
+
+                // Live Training Logic
+                const lightingPct = computed(() => {
+                    if (!status.training_metrics) return 0;
+                    // Ideal brightness is 100-200. Let's map 0-255 to a quality score.
+                    const b = status.training_metrics.brightness;
+                    if (b < 50) return (b / 50) * 40; // Too dark
+                    if (b > 200) return 100 - ((b - 200) / 55) * 60; // Too bright
+                    return 80 + ((b - 50) / 150) * 20; // Good zone
+                });
+
+                const distancePct = computed(() => {
+                    if (!status.training_metrics) return 0;
+                    const range = status.training_metrics.size_range[1] - status.training_metrics.size_range[0];
+                    return Math.min(100, Math.max(0, range * 800)); // Normalized area range -> %
+                });
+
+                const anglePct = computed(() => {
+                    if (!status.training_metrics) return 0;
+                    const range = status.training_metrics.angle_range[1] - status.training_metrics.angle_range[0];
+                    return Math.min(100, Math.max(0, (range / 70) * 100)); // 70deg range -> 100%
+                });
+
+                const resetTrainingMetrics = () => {
+                    status.training_metrics.size_range = [1.0, 0.0];
+                    status.training_metrics.angle_range = [180.0, -180.0];
+                };
+                const cameraSettings = reactive({
+                    resolution: "1280x720",
+                    fps: 30
+                });
+
+                // Apply Theme ID
+                watch(uiTheme, (val) => {
+                    if (val === 'LIGHT') {
+                        document.documentElement.classList.add('light-theme');
+                    } else {
+                        document.documentElement.classList.remove('light-theme');
+                    }
+                });
+
+                const saveSettings = async () => {
+                    const [w, h] = cameraSettings.resolution.split('x').map(Number);
+                    try {
+                        const res = await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                width: w,
+                                height: h,
+                                fps: cameraSettings.fps
+                            })
+                        });
+                        if (res.ok) {
+                            showSettingsModal.value = false;
+                            // alert("Settings applied!"); 
+                        } else {
+                            alert("Failed to apply settings");
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert("Error saving settings");
+                    }
+                };
+
+                // Optimistic Updates
+                const pendingUpdates = reactive({});
+
+                // Watch for gesture changes to re-render icons
+                watch(gestures, () => {
+                    nextTick(() => {
+                        lucide.createIcons();
+                    });
+                }, { deep: true });
+
+                const lastGestureUpdateTime = ref(0); // Grace period for polling
+                const POLLING_GRACE_PERIOD = 2000; // ms
+
+                const fetchData = async () => {
+                    await Promise.all([
+                        fetch('/api/gestures').then(r => r.json()).then(d => {
+                            // Only update if outside grace period
+                            if (Date.now() - lastGestureUpdateTime.value > POLLING_GRACE_PERIOD) {
+                                gestures.value = d;
+                            }
+                        }),
+                        fetch('/api/actions').then(r => r.json()).then(d => actions.value = d),
+                        fetch('/api/map').then(r => r.json()).then(d => {
+                            // Apply server data but preserve pending optimistic updates
+                            Object.entries(pendingUpdates).forEach(([gesture, action]) => {
+                                if (d[gesture] === action) {
+                                    delete pendingUpdates[gesture];
+                                } else {
+                                    d[gesture] = action;
+                                }
+                            });
+                            mapping.value = d;
+                        }),
+                        fetch('/api/status').then(r => r.json()).then(d => {
+                            // Race condition protection
+                            if (Date.now() - lastModeSetTime.value < 1000) {
+                                delete d.mode;
+                            }
+                            Object.assign(status, d)
+
+                            // Trigger PDF Split Modal if action detected
+                            if (status.last_action === 'split_pdf' && !showSplitPdfModal.value) {
+                                showSplitPdfModal.value = true;
+                            }
+                        })
+                    ]);
+                };
+
+                const themes = {
+                    'DEFAULT': { hex: '#6366f1', rgb: '99, 102, 241' },
+                    'CYBERPUNK': { hex: '#d946ef', rgb: '217, 70, 239' }, // Magenta
+                    'MATRIX': { hex: '#22c55e', rgb: '34, 197, 94' },    // Green
+                    'GOLD': { hex: '#eab308', rgb: '234, 179, 8' }       // Yellow
+                };
+
+                const updateCSSTheme = (themeName) => {
+                    const t = themes[themeName] || themes['DEFAULT'];
+                    document.documentElement.style.setProperty('--color-accent', t.hex);
+                    document.documentElement.style.setProperty('--color-accent-rgb', t.rgb);
+                };
+
+                watch(() => status.theme, (newTheme) => {
+                    if (newTheme) updateCSSTheme(newTheme);
+                });
+
+                const lastModeSetTime = ref(0); // Prevent polling race condition
+
+                const setMode = async (mode, preserveName = false) => {
+                    // Optimistic Update
+                    status.mode = mode;
+                    lastModeSetTime.value = Date.now();
+
+                    await fetch('/api/mode', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mode })
+                    });
+                    if (!preserveName) {
+                        newGestureName.value = "";
+                        isAddingToExisting.value = false;
+                    }
+                };
+
+                const saveSample = async () => {
+                    if (!newGestureName.value) return;
+                    await fetch('/api/gestures', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newGestureName.value })
+                    });
+                    fetchData();
+
+                    // Visual feedback
+                    const btn = document.activeElement;
+                    if (btn) {
+                        const originalText = btn.innerHTML;
+                        btn.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i> Saved!`;
+                        btn.classList.add('bg-green-600');
+                        setTimeout(() => {
+                            btn.innerHTML = originalText;
+                            btn.classList.remove('bg-green-600');
+                            lucide.createIcons();
+                        }, 1000);
+                    }
+                };
+
+                const addMoreSamples = (name) => {
+                    console.log("Adding samples for:", name);
+                    if (!name) {
+                        console.error("No name provided for adding samples!");
+                        return;
+                    }
+                    // Force update refs
+                    newGestureName.value = name;
+                    isAddingToExisting.value = true;
+                    status.mode = 'RECORD'; // Instant local update
+
+                    // Then sync with server
+                    setMode('RECORD', true);
+                };
+
+                const deleteGesture = async (name) => {
+                    if (!confirm(`Are you sure you want to delete gesture '${name}'?`)) return;
+
+                    // Optimistic UI Update: Remove immediately
+                    const originalGestures = [...gestures.value];
+                    gestures.value = gestures.value.filter(g => g.name !== name);
+                    lastGestureUpdateTime.value = Date.now(); // Start grace period
+
+                    try {
+                        const res = await fetch(`/api/gestures/${encodeURIComponent(name)}`, { method: 'DELETE' });
+                        if (!res.ok) {
+                            alert("Failed to delete gesture");
+                            gestures.value = originalGestures; // Revert
+                            lastGestureUpdateTime.value = 0; // Reset grace period
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        gestures.value = originalGestures; // Revert
+                        lastGestureUpdateTime.value = 0; // Reset grace period
+                    }
+                };
+
+                const renameGesture = (name) => {
+                    gestureToRename.value = name;
+                    renameInput.value = name;
+                    showRenameModal.value = true;
+                };
+
+                const confirmRename = async () => {
+                    const oldName = gestureToRename.value;
+                    const newName = renameInput.value;
+
+                    if (!newName || newName === oldName) return;
+
+                    showRenameModal.value = false; // Close immediately
+
+                    // Optimistic Update
+                    const originalGestures = JSON.parse(JSON.stringify(gestures.value));
+                    const gestureIdx = gestures.value.findIndex(g => g.name === oldName);
+
+                    if (gestureIdx !== -1) {
+                        gestures.value[gestureIdx].name = newName;
+                        lastGestureUpdateTime.value = Date.now(); // Start grace period
+                        // Update mapping if exists
+                        if (mapping.value[oldName]) {
+                            mapping.value[newName] = mapping.value[oldName];
+                            delete mapping.value[oldName];
+                        }
+                    }
+
+                    try {
+                        const res = await fetch(`/api/gestures/${encodeURIComponent(oldName)}/rename`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ new_name: newName })
+                        });
+
+                        if (!res.ok) {
+                            alert("Rename failed. Reverting.");
+                            gestures.value = originalGestures;
+                            fetchData();
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        gestures.value = originalGestures;
+                        fetchData();
+                    }
+                };
+
+                const mapAction = async (gestureName, actionName) => {
+                    // Optimistic Update
+                    mapping.value[gestureName] = actionName;
+                    pendingUpdates[gestureName] = actionName;
+
+                    await fetch('/api/map', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ gesture: gestureName, action: actionName })
+                    });
+                    // pendingUpdates is cleared in next fetchData cycle if server matches
+                };
+
+                const handleActionChange = (gestureName, event) => {
+                    mapAction(gestureName, event.target.value);
+                };
+
+                const updateCustomCommand = (gestureName, cmd) => {
+                    mapAction(gestureName, `cmd:${cmd}`);
+                };
+
+                // Helper to get clean value for select
+                const getSelectValue = (val) => {
+                    if (!val) return "";
+                    if (val.startsWith("cmd:")) return "custom_command";
+                    if (val.startsWith("type:")) return "type_text";
+                    return val;
+                };
+
+                const getCustomValue = (val) => {
+                    if (!val || !val.startsWith("cmd:")) return "";
+                    return val.substring(4);
+                };
+
+                const categorizedActions = computed(() => {
+                    const groups = {};
+                    actions.value.forEach(act => {
+                        let category = "General";
+                        if (act.includes("volume") || act.includes("media")) category = "Media";
+                        else if (act.includes("brightness") || act.includes("window")) category = "System";
+                        else if (act.includes("scroll") || act.includes("cursor") || act.includes("click")) category = "Mouse";
+                        else if (act.includes("tab") || act.includes("browser")) category = "Browser";
+
+                        if (!groups[category]) groups[category] = [];
+                        groups[category].push(act);
+                    });
+                    // Add special options
+                    if (!groups["Advanced"]) groups["Advanced"] = [];
+                    groups["Advanced"].push("custom_command");
+
+                    return groups;
+                });
+
+                const formatActionName = (name) => {
+                    if (name === 'custom_command') return "Run Custom Command...";
+                    return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                };
+
+                const selectedGestureForGallery = ref(null);
+                const galleryImages = ref([]);
+                const showGalleryModal = ref(false);
+                const isLoadingGallery = ref(false);
+
+                // Lightbox State
+                const lightboxIndex = ref(null);
+
+                const currentLightboxImage = computed(() => {
+                    if (lightboxIndex.value === null || !galleryImages.value.length) return null;
+                    return galleryImages.value[lightboxIndex.value];
+                });
+
+                const openGallery = async (name) => {
+                    selectedGestureForGallery.value = name;
+                    galleryImages.value = [];
+                    isLoadingGallery.value = true;
+                    showGalleryModal.value = true;
+                    try {
+                        const res = await fetch(`/api/gestures/${encodeURIComponent(name)}/images`);
+                        if (res.ok) {
+                            galleryImages.value = await res.json();
+                        }
+                    } catch (e) {
+                        console.error("Failed to load images", e);
+                    } finally {
+                        isLoadingGallery.value = false;
+                        // Ensure selectedGestureForGallery is set!
+                        console.log("Gallery opened for:", selectedGestureForGallery.value);
+                    }
+                };
+
+                const closeGallery = () => {
+                    showGalleryModal.value = false;
+                    selectedGestureForGallery.value = null;
+                    galleryImages.value = [];
+                    lightboxIndex.value = null;
+                };
+
+                const deleteSample = async (gestureName, imgUrl) => {
+                    if (!confirm("Delete this sample?")) return;
+
+                    const filename = imgUrl.split('/').pop();
+
+                    try {
+                        const res = await fetch(`/api/gestures/${encodeURIComponent(gestureName)}/samples/${filename}`, {
+                            method: 'DELETE'
+                        });
+                        if (res.ok) {
+                            openGallery(gestureName);
+                            fetchData();
+                            return true;
+                        } else {
+                            alert("Failed to delete sample");
+                            return false;
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        return false;
+                    }
+                };
+
+                const deleteSampleInLightbox = async () => {
+                    if (currentLightboxImage.value) {
+                        const success = await deleteSample(selectedGestureForGallery.value, currentLightboxImage.value);
+                        if (success) {
+                            closeLightbox();
+                        }
+                    }
+                };
+
+                // Lightbox Controls
+                const openLightbox = (index) => {
+                    lightboxIndex.value = index;
+                };
+
+                const closeLightbox = () => {
+                    lightboxIndex.value = null;
+                };
+
+                const nextImage = () => {
+                    if (lightboxIndex.value === null) return;
+                    lightboxIndex.value = (lightboxIndex.value + 1) % galleryImages.value.length;
+                };
+
+                const prevImage = () => {
+                    if (lightboxIndex.value === null) return;
+                    lightboxIndex.value = (lightboxIndex.value - 1 + galleryImages.value.length) % galleryImages.value.length;
+                };
+
+                // Keyboard Navigation
+                window.addEventListener('keydown', (e) => {
+                    if (lightboxIndex.value !== null) {
+                        if (e.key === 'ArrowRight') nextImage();
+                        if (e.key === 'ArrowLeft') prevImage();
+                        if (e.key === 'Escape') closeLightbox();
+                    } else if (showGalleryModal.value) {
+                        if (e.key === 'Escape') closeGallery();
+                    } else {
+                        // Sidebar Scroll
+                        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+                        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                            const sidebar = document.getElementById('mapping-sidebar');
+                            if (sidebar) {
+                                e.preventDefault(); // Prevent page scroll
+                                sidebar.scrollTop += (e.key === 'ArrowDown' ? 50 : -50);
+                            }
+                        }
+                    }
+                });
+
+
+
+                // --- Themes ---
+                const setTheme = async (themeName) => {
+                    try {
+                        await fetch('/api/theme', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ theme: themeName })
+                        });
+                    } catch (e) {
+                        console.error("Theme Error", e);
+                    }
+                };
+
+                onMounted(() => {
+                    lucide.createIcons();
+                    setInterval(fetchData, 200); // Poll every 200ms
+                });
+
+                return {
+                    status,
+                    gestures,
+                    actions,
+                    mapping,
+                    newGestureName,
+                    isAddingToExisting, // Export
+                    setMode,
+                    setTheme,
+                    saveSample,
+                    deleteGesture,
+                    renameGesture, // Fix: Export this
+                    addMoreSamples, // Fix: Expose function
+                    handleActionChange,
+                    categorizedActions,
+                    formatActionName,
+                    getSelectValue,
+                    getCustomValue,
+                    updateCustomCommand,
+                    openGallery,
+                    closeGallery,
+                    deleteSample,
+                    deleteSampleInLightbox,
+                    selectedGestureForGallery,
+                    galleryImages,
+                    showGalleryModal,
+                    isLoadingGallery,
+                    lightboxIndex,
+                    currentLightboxImage,
+                    openLightbox,
+                    closeLightbox,
+                    nextImage,
+                    prevImage,
+                    // Rename Modal
+                    showRenameModal,
+                    renameInput,
+                    confirmRename,
+                    gestureToRename,
+
+                    // Settings
+                    showSettingsModal,
+                    cameraSettings,
+                    saveSettings,
+                    uiTheme,
+
+                    // Dataset
+                    showDatasetModal,
+
+                    // Training
+                    showTrainingModal,
+                    lightingPct,
+                    distancePct,
+                    anglePct,
+                    resetTrainingMetrics,
+
+                    // PDF Split
+                    showSplitPdfModal,
+                    selectedPdfFile,
+                    splitRange,
+                    isSplitting,
+                    handlePdfFileUpload,
+                    performPdfSplit
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>
