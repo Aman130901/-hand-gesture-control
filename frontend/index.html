@@ -515,6 +515,16 @@
                                     <div
                                         class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2">
                                         <span class="text-[10px] text-gray-300 font-mono">Sample #{{ idx + 1 }}</span>
+                                        <button @click.stop="previewAugmentation(selectedGestureForGallery, img)"
+                                            class="p-1.5 bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white rounded transition-colors mr-1"
+                                            title="Augment Sample">
+                                            <i data-lucide="sparkles" class="w-4 h-4"></i>
+                                        </button>
+                                        <button @click.stop="previewBulkAugmentation(selectedGestureForGallery, img)"
+                                            class="p-1.5 bg-purple-500/20 text-purple-400 hover:bg-purple-500 hover:text-white rounded transition-colors mr-1"
+                                            title="Bulk Augmentation View">
+                                            <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                                        </button>
                                         <button @click.stop="deleteSample(selectedGestureForGallery, img)"
                                             class="p-1.5 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded transition-colors"
                                             title="Delete Sample">
@@ -588,11 +598,24 @@
                             {{ lightboxIndex + 1 }} / {{ galleryImages.length }}
                         </div>
 
-                        <button @click="deleteSampleInLightbox"
-                            class="absolute bottom-8 right-12 p-3 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-full transition-colors border border-red-500/30"
-                            title="Delete this sample">
-                            <i data-lucide="trash-2" class="w-6 h-6"></i>
-                        </button>
+                        <!-- Lightbox Actions -->
+                        <div class="absolute bottom-8 right-12 flex flex-col gap-4">
+                            <button @click="previewAugmentation(selectedGestureForGallery, currentLightboxImage)"
+                                class="p-3 bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-full transition-all border border-indigo-500/30 shadow-lg shadow-indigo-900/20"
+                                title="Augment Sample">
+                                <i data-lucide="sparkles" class="w-6 h-6"></i>
+                            </button>
+                            <button @click="previewBulkAugmentation(selectedGestureForGallery, currentLightboxImage)"
+                                class="p-3 bg-purple-500/20 text-purple-400 hover:bg-purple-500 hover:text-white rounded-full transition-all border border-purple-500/30 shadow-lg shadow-purple-900/20"
+                                title="Bulk Augmentation View">
+                                <i data-lucide="layout-grid" class="w-6 h-6"></i>
+                            </button>
+                            <button @click="deleteSampleInLightbox"
+                                class="p-3 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-full transition-all border border-red-500/30 shadow-lg shadow-red-900/20"
+                                title="Delete this sample">
+                                <i data-lucide="trash-2" class="w-6 h-6"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <button @click="nextImage"
@@ -601,6 +624,195 @@
                     </button>
                 </div>
             </transition>
+            <!-- Bulk Augmentation Modal -->
+            <transition name="fade">
+                <div v-if="showBulkAugmentModal"
+                    class="fixed inset-0 z-[110] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
+                    <div
+                        class="bg-surface border border-white/10 rounded-3xl w-full max-w-6xl h-[90vh] shadow-2xl overflow-hidden flex flex-col">
+                        <div
+                            class="p-6 border-b border-white/10 flex items-center justify-between bg-surface2/30 relative z-20">
+                            <div>
+                                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="layout-grid" class="w-5 h-5 text-purple-400"></i>
+                                    Bulk Augmentation Grid
+                                </h3>
+                                <p class="text-xs text-gray-400 mt-1">Simulating environmental diversity in parallel</p>
+                            </div>
+                            <div
+                                class="flex items-center gap-4 bg-black/40 px-4 py-2 rounded-2xl border border-white/5 mx-4">
+                                <label class="text-[10px] uppercase font-bold text-gray-500 whitespace-nowrap">Sample
+                                    Count:</label>
+                                <input type="number" v-model.number="bulkAugmentCount" min="10" max="1000" step="10"
+                                    class="bg-transparent border-none text-purple-400 font-bold w-16 outline-none text-center">
+                            </div>
+                            <button @click.stop="showBulkAugmentModal = false"
+                                class="p-2 hover:bg-white/20 rounded-full transition-colors ml-auto cursor-pointer relative z-30">
+                                <i data-lucide="x" class="w-6 h-6 text-gray-400 hover:text-white"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto p-6 custom-scrollbar bg-black/20">
+                            <div v-if="isBulkAugmenting" class="h-full flex flex-col items-center justify-center gap-6">
+                                <div class="relative w-24 h-24">
+                                    <div class="absolute inset-0 border-4 border-purple-500/20 rounded-full"></div>
+                                    <div
+                                        class="absolute inset-0 border-4 border-t-purple-500 rounded-full animate-spin">
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-lg font-bold text-white">Generating Dataset Variations...</p>
+                                    <p class="text-xs text-gray-500 mt-2">Generating variations over parallel network
+                                        streams</p>
+                                </div>
+                            </div>
+
+                            <!-- Scrollable Content (Fitted to 10-column master sprite) -->
+                            <div v-if="!isBulkAugmenting && bulkAugmentSpriteUrl"
+                                class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3">
+
+                                <div v-for="idx in bulkAugmentCount" :key="idx-1" @click="enlargeAugment(idx-1)"
+                                    class="relative aspect-square bg-surface2 rounded-xl overflow-hidden border border-white/5 hover:border-purple-500/80 transition-all cursor-pointer hover:scale-[1.03] active:scale-95 z-10 shadow-lg">
+
+                                    <!-- Individual Tile from Master Sprite (10x10 mapping) -->
+                                    <div class="w-full h-full bg-no-repeat pointer-events-none" :style="{
+                                            backgroundImage: `url(${bulkAugmentSpriteUrl})`,
+                                            backgroundSize: '1000% auto',
+                                            backgroundPosition: `${((idx-1) % 10) * 11.111}% ${Math.floor((idx-1) / 10) * (100 / (Math.ceil(bulkAugmentCount / 10) - 1))}%`
+                                         }">
+                                    </div>
+
+                                    <div
+                                        class="absolute inset-0 bg-purple-500/5 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="p-6 bg-surface2/50 border-t border-white/10 flex justify-between items-center relative z-20">
+                            <div class="text-xs text-gray-500 font-mono">
+                                Rendering Mode: Interactive Parallel Grid
+                            </div>
+                            <div class="flex gap-3">
+                                <button @click.stop="showBulkAugmentModal = false"
+                                    class="px-6 py-2 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition-colors cursor-pointer">
+                                    Close
+                                </button>
+                                <button
+                                    @click.stop="previewBulkAugmentation(selectedGestureForGallery, currentSampleForAugment)"
+                                    class="px-6 py-2 bg-purple-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-900/20 hover:brightness-110 transition-all flex items-center gap-2 cursor-pointer">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                    Refresh All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+            <!-- Variation Lightbox -->
+            <transition name="fade">
+                <div v-if="selectedAugmentIndex !== null" @click.self="selectedAugmentIndex = null"
+                    class="fixed inset-0 z-[200] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-8">
+
+                    <!-- Close button -->
+                    <button @click.stop="selectedAugmentIndex = null"
+                        class="absolute top-8 right-8 p-4 bg-white/10 hover:bg-white/20 rounded-full transition-all text-white z-[210] cursor-pointer border border-white/10">
+                        <i data-lucide="x" class="w-10 h-10"></i>
+                    </button>
+
+                    <!-- Navigation Arrows -->
+                    <button @click.stop="prevAugment"
+                        class="absolute left-8 p-6 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition-all z-[210] cursor-pointer">
+                        <i data-lucide="chevron-left" class="w-16 h-16"></i>
+                    </button>
+
+                    <div
+                        class="relative w-full max-w-5xl h-[80vh] flex items-center justify-center bg-black/40 rounded-3xl overflow-hidden border border-white/5 shadow-2xl">
+                        <!-- Bottom Layer: Instant Thumbnail (Blurred but same-frame pop) -->
+                        <img v-if="augmentedImagesBulk[selectedAugmentIndex]"
+                            :src="augmentedImagesBulk[selectedAugmentIndex].url"
+                            class="absolute inset-0 w-full h-full object-contain blur-lg opacity-40 scale-105 transition-all duration-500">
+
+                        <!-- Top Layer: HD Version (Fades in over thumbnail) -->
+                        <img v-if="augmentedImagesBulk[selectedAugmentIndex]"
+                            :src="augmentedImagesBulk[selectedAugmentIndex].hd_url" @load="isHDElevating = false"
+                            @click.stop
+                            class="relative z-10 max-w-full max-h-full object-contain rounded-xl shadow-glow transition-all duration-300"
+                            :class="{'opacity-0 scale-95': isHDElevating, 'opacity-100 scale-100': !isHDElevating}">
+
+                        <!-- Mini HD Status Indicator -->
+                        <div v-if="isHDElevating"
+                            class="absolute top-6 right-8 flex items-center gap-2 bg-purple-600/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-purple-500/20 z-20">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400 animate-pulse"></i>
+                            <span class="text-[10px] font-bold text-purple-300 uppercase tracking-tighter">HD
+                                Elevating...</span>
+                        </div>
+
+                        <!-- Navigation HUD -->
+                        <div
+                            class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-xl px-8 py-3 rounded-full border border-white/10 flex items-center gap-6 text-sm font-bold text-white z-40 shadow-2xl">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full"
+                                    :class="isHDElevating ? 'bg-purple-500 animate-pulse' : 'bg-green-500'"></span>
+                                <span class="uppercase tracking-tighter opacity-70">Variation #{{ selectedAugmentIndex +
+                                    1 }}</span>
+                            </div>
+                            <div class="h-4 w-[1px] bg-white/10"></div>
+                            <div class="flex items-center gap-4 text-[10px] text-gray-400 uppercase tracking-widest">
+                                <span>← Prev</span>
+                                <span>Next →</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button @click.stop="nextAugment"
+                        class="absolute right-8 p-6 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition-all z-[210] cursor-pointer">
+                        <i data-lucide="chevron-right" class="w-16 h-16"></i>
+                    </button>
+                </div>
+            </transition>
+
+            <!-- Augmentation Modal -->
+            <transition name="fade">
+                <div v-if="showAugmentModal"
+                    class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-8">
+                    <div
+                        class="bg-surface border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col">
+                        <div class="p-6 border-b border-white/10 flex items-center justify-between">
+                            <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                                <i data-lucide="sparkles" class="w-5 h-5 text-blue-400"></i>
+                                Augmentation Preview
+                            </h3>
+                            <button @click="showAugmentModal = false"
+                                class="p-2 hover:bg-white/10 rounded-full transition-colors">
+                                <i data-lucide="x" class="w-6 h-6 text-gray-400 hover:text-white"></i>
+                            </button>
+                        </div>
+                        <div class="p-8 flex items-center justify-center bg-black/40 min-h-[300px]">
+                            <div v-if="isAugmenting" class="flex flex-col items-center gap-4">
+                                <i data-lucide="loader-2" class="w-12 h-12 text-accent animate-spin"></i>
+                                <p class="text-xs text-gray-500">Generating augmentation...</p>
+                            </div>
+                            <img v-else-if="augmentedImage" :src="augmentedImage"
+                                class="max-w-full max-h-[60vh] rounded-xl shadow-2xl border border-white/10">
+                        </div>
+                        <div class="p-6 bg-surface2/50 flex justify-end gap-3">
+                            <button @click="showAugmentModal = false"
+                                class="px-6 py-2 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition-colors">
+                                Close
+                            </button>
+                            <button @click="previewAugmentation(selectedGestureForGallery, currentSampleForAugment)"
+                                class="px-6 py-2 bg-accent text-white rounded-xl text-sm font-bold shadow-glow hover:brightness-110 transition-all flex items-center gap-2">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                Try Another
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
             <!-- Settings Modal -->
             <transition name="fade">
                 <div v-if="showSettingsModal"
@@ -959,6 +1171,21 @@
                 const selectedPdfFile = ref(null);
                 const splitRange = reactive({ start: 1, end: 1 });
                 const isSplitting = ref(false);
+
+                // Augmentation State
+                const showAugmentModal = ref(false);
+                const augmentedImage = ref(null);
+                const isAugmenting = ref(false);
+                const currentSampleForAugment = ref(null);
+
+                // Bulk Augmentation State
+                const showBulkAugmentModal = ref(false);
+                const augmentedImagesBulk = ref([]); // Now stores [{seed, url, hd_url}]
+                const bulkAugmentSpriteUrl = ref(null);
+                const selectedAugmentIndex = ref(null);
+                const isBulkAugmenting = ref(false);
+                const isHDElevating = ref(false);
+                const bulkAugmentCount = ref(100);
 
                 const handlePdfFileUpload = (event) => {
                     const file = event.target.files[0];
@@ -1378,6 +1605,126 @@
                     }
                 };
 
+                const previewAugmentation = async (gestureName, imgUrl) => {
+                    const filename = imgUrl.split('/').pop();
+                    currentSampleForAugment.value = imgUrl;
+                    showAugmentModal.value = true;
+                    isAugmenting.value = true;
+                    augmentedImage.value = null;
+
+                    try {
+                        const res = await fetch(`/api/gestures/${encodeURIComponent(gestureName)}/samples/${filename}/augment`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            augmentedImage.value = data.augmented_image;
+                        } else {
+                            alert("Failed to augment image");
+                            showAugmentModal.value = false;
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        showAugmentModal.value = false;
+                    } finally {
+                        isAugmenting.value = false;
+                        nextTick(() => lucide.createIcons());
+                    }
+                };
+
+                const previewBulkAugmentation = async (gestureName, imgUrl) => {
+                    const filename = imgUrl.split('/').pop();
+                    showBulkAugmentModal.value = true;
+                    isBulkAugmenting.value = true;
+                    augmentedImagesBulk.value = [];
+                    bulkAugmentSpriteUrl.value = null;
+
+                    const count = bulkAugmentCount.value || 100;
+                    const encodedName = encodeURIComponent(gestureName);
+
+                    // 1. Set the Master Sprite (1 request for the whole grid)
+                    bulkAugmentSpriteUrl.value = `/api/gestures/${encodedName}/samples/${filename}/sprite?count=${count}&t=${Date.now()}`;
+
+                    // 2. Generate deterministic HD metadata (seeds match sprite indices)
+                    const meta = [];
+                    for (let i = 0; i < count; i++) {
+                        meta.push({
+                            seed: i,
+                            url: `/api/gestures/${encodedName}/samples/${filename}/augment_raw?seed=${i}&w=256`,
+                            hd_url: `/api/gestures/${encodedName}/samples/${filename}/augment_raw?seed=${i}&w=800`
+                        });
+                    }
+
+                    setTimeout(() => {
+                        augmentedImagesBulk.value = meta;
+                        isBulkAugmenting.value = false;
+
+                        // Prefetch the first 5 HD images
+                        for (let i = 0; i < Math.min(count, 5); i++) {
+                            prefetchAugment(i);
+                        }
+
+                        nextTick(() => lucide.createIcons());
+                    }, 400); // Small wait for sprite request to fire
+                };
+
+                const prefetchAugment = (index) => {
+                    if (index < 0 || index >= augmentedImagesBulk.value.length) return;
+                    const url = augmentedImagesBulk.value[index].hd_url;
+                    const img = new Image();
+                    img.src = url;
+                };
+
+                const enlargeAugment = (index) => {
+                    isHDElevating.value = true;
+                    selectedAugmentIndex.value = index;
+
+                    // Aggressive Pre-fetch: Load next 5 images in HD
+                    for (let i = 1; i <= 5; i++) {
+                        prefetchAugment((index + i) % augmentedImagesBulk.value.length);
+                        prefetchAugment((index - i + augmentedImagesBulk.value.length) % augmentedImagesBulk.value.length);
+                    }
+
+                    nextTick(() => lucide.createIcons());
+                };
+
+                const nextAugment = () => {
+                    if (selectedAugmentIndex.value === null) return;
+                    isHDElevating.value = true;
+                    selectedAugmentIndex.value = (selectedAugmentIndex.value + 1) % augmentedImagesBulk.value.length;
+
+                    // Prefetch deep buffer (5 ahead)
+                    for (let i = 1; i <= 5; i++) {
+                        prefetchAugment((selectedAugmentIndex.value + i) % augmentedImagesBulk.value.length);
+                    }
+
+                    nextTick(() => lucide.createIcons());
+                };
+
+                const prevAugment = () => {
+                    if (selectedAugmentIndex.value === null) return;
+                    isHDElevating.value = true;
+                    selectedAugmentIndex.value = (selectedAugmentIndex.value - 1 + augmentedImagesBulk.value.length) % augmentedImagesBulk.value.length;
+
+                    // Prefetch deep buffer (5 behind)
+                    for (let i = 1; i <= 5; i++) {
+                        prefetchAugment((selectedAugmentIndex.value - i + augmentedImagesBulk.value.length) % augmentedImagesBulk.value.length);
+                    }
+
+                    nextTick(() => lucide.createIcons());
+                };
+
+                // Keyboard listener for navigation
+                window.addEventListener('keydown', (e) => {
+                    if (selectedAugmentIndex.value !== null) {
+                        if (e.key === 'ArrowRight') nextAugment();
+                        if (e.key === 'ArrowLeft') prevAugment();
+                        if (e.key === 'Escape') selectedAugmentIndex.value = null;
+                    } else if (lightboxIndex.value !== null) {
+                        if (e.key === 'ArrowRight') nextImage();
+                        if (e.key === 'ArrowLeft') prevImage();
+                        if (e.key === 'Escape') closeLightbox();
+                    }
+                });
+
                 // Lightbox Controls
                 const openLightbox = (index) => {
                     lightboxIndex.value = index;
@@ -1500,7 +1847,26 @@
                     splitRange,
                     isSplitting,
                     handlePdfFileUpload,
-                    performPdfSplit
+                    performPdfSplit,
+
+                    // Augmentation
+                    showAugmentModal,
+                    augmentedImage,
+                    isAugmenting,
+                    currentSampleForAugment,
+                    previewAugmentation,
+                    previewBulkAugmentation,
+                    enlargeAugment,
+                    nextAugment,
+                    prevAugment,
+                    showBulkAugmentModal,
+                    augmentedImagesBulk,
+                    bulkAugmentSpriteUrl,
+                    selectedAugmentIndex,
+                    isBulkAugmenting,
+                    bulkAugmentCount,
+                    isHDElevating,
+                    bulkAugmentCount
                 };
             }
         }).mount('#app');

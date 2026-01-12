@@ -93,4 +93,4 @@ The **Hand Gesture Control System** represents a shift towards more natural user
 
 ---
 
-**Built with ❤️ Hard Work.**
+**Built with ❤️ for the Developer Community.**

@@ -15,6 +15,7 @@ from config import Config
 from gesture_engine import GestureEngine
 from action_map import ActionMap
 from draw_utils import draw_styled_landmarks
+from augmentation_utils import augment_image, generate_bulk_augmentations, generate_augmentation_sprite
 
 # --- Configure Logging ---
 logging.basicConfig(
@@ -57,7 +58,6 @@ class AppState:
         
         # Stats
         self.fps = 0
-        self.stability_score = 0
         self.stability_score = 0
         self.theme = "DEFAULT"
         
@@ -302,9 +302,6 @@ def camera_loop():
         if Config.FPS < 60:
              time.sleep(0.001) # Minimal sleep only if we really need to yield, but for 60FPS+ we want to run hot.
 
-# Start Thread
-t = threading.Thread(target=camera_loop, daemon=True)
-t.start()
 
 # --- Flask Routes ---
 @app.route('/')
@@ -476,6 +473,131 @@ def delete_sample(name, filename):
 
 
 
+@app.route('/api/gestures/<name>/samples/<path:filename>/augment', methods=['GET'])
+def augment_sample_preview(name, filename):
+    try:
+        sample_dir = os.path.join("samples", name)
+        filepath = os.path.join(sample_dir, filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({"error": "File not found"}), 404
+
+        # Read original
+        img = cv2.imread(filepath)
+        if img is None:
+            return jsonify({"error": "Failed to read image"}), 500
+
+        # Augment
+        augmented = augment_image(img)
+        
+        # Encode to JPEG
+        ret, buffer = cv2.imencode('.jpg', augmented)
+        if not ret:
+            return jsonify({"error": "Failed to encode image"}), 500
+            
+        import base64
+        encoded = base64.b64encode(buffer).decode('utf-8')
+        return jsonify({"augmented_image": f"data:image/jpeg;base64,{encoded}"})
+
+    except Exception as e:
+        logger.error(f"Augmentation error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/gestures/<name>/samples/<path:filename>/bulk_augment', methods=['GET'])
+def bulk_augment_sample_preview(name, filename):
+    try:
+        sample_dir = os.path.join("samples", name)
+        filepath = os.path.join(sample_dir, filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({"error": "File not found"}), 404
+
+        # Read original
+        img = cv2.imread(filepath)
+        if img is None:
+            return jsonify({"error": "Failed to read image"}), 500
+
+        # Augment Bulk (100 samples)
+        count = request.args.get('count', 100, type=int)
+        augmented_list = generate_bulk_augmentations(img, count=count)
+        
+        results = []
+        import base64
+        for aug in augmented_list:
+            ret, buffer = cv2.imencode('.jpg', aug)
+            if ret:
+                encoded = base64.b64encode(buffer).decode('utf-8')
+                results.append(f"data:image/jpeg;base64,{encoded}")
+        
+        return jsonify({"augmented_images": results})
+
+    except Exception as e:
+        logger.error(f"Bulk augmentation error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/gestures/<name>/samples/<path:filename>/augment_raw', methods=['GET'])
+def augment_sample_raw(name, filename):
+    try:
+        sample_dir = os.path.join("samples", name)
+        filepath = os.path.join(sample_dir, filename)
+        
+        if not os.path.exists(filepath):
+            return "File not found", 404
+
+        img = cv2.imread(filepath)
+        if img is None:
+            return "Failed to read image", 500
+
+        # Optional Seed for Determinism
+        seed = request.args.get('seed', type=int)
+        
+        # Optional Resize for Speed
+        thumb_w = request.args.get('w', type=int)
+        
+        augmented = augment_image(img, thumb_w=thumb_w, seed=seed)
+        
+        # Balanced quality (90) - 4x faster than 100%
+        quality = 90
+        ret, buffer = cv2.imencode('.jpg', augmented, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+        if not ret:
+            return "Failed to encode image", 500
+            
+        return Response(buffer.tobytes(), mimetype='image/jpeg', headers={
+            'Cache-Control': 'public, max-age=3600'
+        })
+    except Exception as e:
+        logger.error(f"Raw augmentation error: {e}")
+        return str(e), 500
+
+@app.route('/api/gestures/<name>/samples/<path:filename>/sprite', methods=['GET'])
+def augment_sample_sprite(name, filename):
+    try:
+        sample_dir = os.path.join("samples", name)
+        filepath = os.path.join(sample_dir, filename)
+        
+        if not os.path.exists(filepath):
+            return "File not found", 404
+
+        img = cv2.imread(filepath)
+        if img is None:
+            return "Failed to read image", 500
+
+        count = request.args.get('count', 100, type=int)
+        # Cap count to 400 to prevent memory issues
+        count = min(400, max(1, count))
+        
+        sprite = generate_augmentation_sprite(img, count=count)
+        
+        # Web-Optimized quality (85) - Ideal for small tiles
+        ret, buffer = cv2.imencode('.jpg', sprite, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+        if not ret:
+            return "Failed to encode image", 500
+            
+        return Response(buffer.tobytes(), mimetype='image/jpeg')
+    except Exception as e:
+        logger.error(f"Sprite augmentation error: {e}")
+        return str(e), 500
+
 @app.route('/api/gestures/<name>', methods=['DELETE'])
 def delete_gesture(name):
     try:
@@ -596,5 +718,11 @@ def process_split_pdf():
     return jsonify({"error": "Unknown error"}), 500
 
 if __name__ == '__main__':
+    # Move thread startup here to prevent duplicate execution in Flask debug mode/reloader
+    logger.info("Starting Background Camera Thread...")
+    t = threading.Thread(target=camera_loop, daemon=True)
+    t.start()
+    
     logger.info("Starting Flask Server...")
+    # Using use_reloader=False if needed, but moving the thread usually fixes the double-start
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
