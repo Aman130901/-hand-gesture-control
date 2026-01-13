@@ -114,6 +114,30 @@
             opacity: 0;
         }
 
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .shadow-glow-sm {
+            box-shadow: 0 0 15px rgba(var(--color-accent-rgb), 0.2);
+        }
+
+        [data-lucide] {
+            stroke-width: 2px;
+        }
+
         .list-enter-active,
         .list-leave-active {
             transition: all 0.3s ease;
@@ -331,22 +355,22 @@
                                     <span class="font-medium text-sm text-white">{{ g.name }}</span>
                                 </div>
                                 <button @click.stop="renameGesture(g.name)"
-                                    class="p-2 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-white rounded-lg transition-colors mr-1 active:scale-90"
+                                    class="p-2 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-white rounded-lg transition-colors mr-1 active:scale-95"
                                     title="Rename Gesture">
                                     <i data-lucide="pencil" class="w-4 h-4"></i>
                                 </button>
                                 <button @click="openGallery(g.name)"
-                                    class="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition-colors mr-1 active:scale-90"
+                                    class="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition-colors mr-1 active:scale-95"
                                     title="View Samples">
                                     <i data-lucide="image" class="w-4 h-4"></i>
                                 </button>
                                 <button @click.stop="addMoreSamples(g.name)"
-                                    class="p-2 bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white rounded-lg transition-colors mr-1 active:scale-90"
+                                    class="p-2 bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white rounded-lg transition-colors mr-1 active:scale-95"
                                     title="Add More Samples">
                                     <i data-lucide="plus-circle" class="w-4 h-4"></i>
                                 </button>
                                 <button @click.stop="deleteGesture(g.name)"
-                                    class="p-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-colors active:scale-90"
+                                    class="p-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-colors active:scale-95"
                                     title="Delete Gesture">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
@@ -547,7 +571,7 @@
                                         class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2">
                                         <span class="text-[10px] text-gray-300 font-mono">Sample #{{ idx + 1 }}</span>
                                         <button @click.stop="previewAugmentation(selectedGestureForGallery, img)"
-                                            class="p-1.5 bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white rounded transition-colors mr-1 active:scale-90"
+                                            class="p-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded transition-colors mr-1 active:scale-90"
                                             title="Augment Sample">
                                             <i data-lucide="sparkles" class="w-4 h-4"></i>
                                         </button>
@@ -848,14 +872,14 @@
                 <div v-if="showAugmentModal"
                     class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-8">
                     <div
-                        class="bg-surface border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col">
+                        class="glass rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col border border-white/10 animate-pop-in">
                         <div class="p-6 border-b border-white/10 flex items-center justify-between">
                             <h3 class="text-xl font-bold text-white flex items-center gap-2">
                                 <i data-lucide="sparkles" class="w-5 h-5 text-blue-400"></i>
                                 Augmentation Preview
                             </h3>
                             <button @click="showAugmentModal = false"
-                                class="p-2 hover:bg-white/10 rounded-full transition-colors">
+                                class="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90">
                                 <i data-lucide="x" class="w-6 h-6 text-gray-400 hover:text-white"></i>
                             </button>
                         </div>
@@ -869,11 +893,11 @@
                         </div>
                         <div class="p-6 bg-surface2/50 flex justify-end gap-3">
                             <button @click="showAugmentModal = false"
-                                class="px-6 py-2 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition-colors">
+                                class="px-6 py-2 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition-colors active:scale-95">
                                 Close
                             </button>
                             <button @click="previewAugmentation(selectedGestureForGallery, currentSampleForAugment)"
-                                class="px-6 py-2 bg-accent text-white rounded-xl text-sm font-bold shadow-glow hover:brightness-110 transition-all flex items-center gap-2">
+                                class="px-6 py-2 bg-accent text-white rounded-xl text-sm font-bold shadow-glow hover:brightness-110 transition-all flex items-center gap-2 active:scale-95">
                                 <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                                 Try Another
                             </button>
@@ -886,50 +910,59 @@
             <transition name="fade">
                 <div v-if="showSettingsModal"
                     class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div class="bg-surface border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4"
+                    <div class="glass p-8 rounded-3xl border border-white/10 shadow-2xl flex flex-col gap-6 w-full max-w-md animate-pop-in"
                         @click.stop>
-                        <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                            <i data-lucide="settings" class="w-5 h-5 text-accent"></i>
-                            Camera Settings
-                        </h3>
-
-                        <div class="space-y-4">
+                        <div class="flex items-center gap-4 border-b border-white/10 pb-4">
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-accent/20 flex items-center justify-center shadow-glow">
+                                <i data-lucide="settings" class="w-6 h-6 text-accent"></i>
+                            </div>
                             <div>
-                                <label class="block text-sm text-gray-400 mb-1">Interface Theme</label>
+                                <h3 class="text-xl font-bold text-white">System Settings</h3>
+                                <p class="text-xs text-gray-400">Configure interface and camera</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-5">
+                            <div class="flex flex-col gap-2">
+                                <label class="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Interface
+                                    Theme</label>
                                 <select v-model="uiTheme"
-                                    class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-accent">
+                                    class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-accent transition-all appearance-none cursor-pointer">
                                     <option value="DARK">Dark Mode (Default)</option>
                                     <option value="LIGHT">Light Mode</option>
                                 </select>
                             </div>
 
-                            <div>
-                                <label class="block text-sm text-gray-400 mb-1">Resolution</label>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Camera
+                                    Resolution</label>
                                 <select v-model="cameraSettings.resolution"
-                                    class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-accent">
-                                    <option value="1280x720">High Definition (1280x720) - Clearer</option>
-                                    <option value="640x480">Standard Definition (640x480) - Faster</option>
+                                    class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-accent transition-all appearance-none cursor-pointer">
+                                    <option value="1280x720">High Definition (1280x720)</option>
+                                    <option value="640x480">Standard Definition (640x480)</option>
                                 </select>
                             </div>
 
-                            <div>
-                                <label class="block text-sm text-gray-400 mb-1">Target Framerate</label>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Target
+                                    Framerate</label>
                                 <select v-model="cameraSettings.fps"
-                                    class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-accent">
+                                    class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-accent transition-all appearance-none cursor-pointer">
                                     <option :value="30">30 FPS (Stable)</option>
                                     <option :value="60">60 FPS (Fluid)</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div class="flex gap-2 pt-2">
+                        <div class="flex gap-3 pt-2">
                             <button @click="showSettingsModal = false"
-                                class="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+                                class="flex-1 px-4 py-3 rounded-xl text-sm font-bold text-gray-400 hover:text-white hover:bg-white/5 border border-white/10 transition-all active:scale-95">
                                 Cancel
                             </button>
                             <button @click="saveSettings"
-                                class="flex-1 bg-accent text-white font-bold py-2 rounded-lg hover:brightness-110 shadow-glow transition-all">
-                                Apply Changes
+                                class="flex-1 bg-accent text-white font-bold py-3 rounded-xl hover:brightness-110 shadow-glow transition-all active:scale-95">
+                                Save Changes
                             </button>
                         </div>
                     </div>
@@ -940,7 +973,7 @@
             <transition name="fade">
                 <div v-if="showTrainingModal"
                     class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div class="bg-surface border border-white/10 rounded-2xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[85vh]"
+                    <div class="glass border border-white/10 rounded-3xl w-full max-w-4xl p-8 shadow-2xl flex flex-col max-h-[85vh] animate-pop-in"
                         @click.stop>
 
                         <div class="flex items-center justify-between mb-4 flex-shrink-0">
@@ -1193,69 +1226,215 @@
                 </div>
             </transition>
 
-            <!-- Dataset Modal -->
+            <!-- Dataset Dashboard -->
             <transition name="fade">
                 <div v-if="showDatasetModal"
-                    class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div class="bg-surface border border-white/10 rounded-2xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[85vh]"
-                        @click.stop>
+                    class="fixed inset-0 z-[70] flex flex-col bg-dark/95 backdrop-blur-xl overflow-hidden shadow-2xl animate-fade-in"
+                    @click.stop>
 
-                        <div class="flex items-center justify-between mb-4 flex-shrink-0">
-                            <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                                <i data-lucide="database" class="w-5 h-5 text-accent"></i>
-                                Gesture Datasets
+                    <!-- Header -->
+                    <div
+                        class="h-16 shrink-0 border-b border-white/10 px-8 flex items-center justify-between bg-surface/50">
+                        <div class="flex items-center gap-6">
+                            <h3 class="text-xl font-bold text-white flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
+                                    <i data-lucide="database" class="w-5 h-5 text-accent"></i>
+                                </div>
+                                Dataset Dashboard
                             </h3>
+                            <div class="h-6 w-px bg-white/10 mx-2"></div>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    class="px-4 py-1.5 rounded-lg bg-blue-600/90 hover:bg-blue-500 text-xs font-bold text-white flex items-center gap-2 transition-all active:scale-95">
+                                    <i data-lucide="upload" class="w-3.5 h-3.5"></i> Import Dataset
+                                </button>
+                                <button
+                                    class="px-4 py-1.5 rounded-lg bg-surface hover:bg-white/5 border border-white/10 text-xs font-bold text-gray-300 flex items-center gap-2 transition-all active:scale-95">
+                                    <i data-lucide="download" class="w-3.5 h-3.5"></i> Export Dataset
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <button @click="fetchData"
+                                class="px-4 py-1.5 rounded-lg bg-surface hover:bg-white/5 border border-white/10 text-xs font-bold text-gray-300 flex items-center gap-2 transition-all active:scale-95">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+                            </button>
                             <button @click="showDatasetModal = false"
-                                class="text-gray-400 hover:text-white transition-colors">
+                                class="w-10 h-10 rounded-xl bg-surface hover:bg-red-500/20 text-gray-400 hover:text-red-400 border border-white/10 flex items-center justify-center transition-all active:scale-90">
                                 <i data-lucide="x" class="w-5 h-5"></i>
                             </button>
                         </div>
+                    </div>
 
-                        <div class="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                            <div v-if="gestures.length === 0"
-                                class="p-8 text-center border border-dashed border-white/10 rounded-lg">
-                                <p class="text-gray-500">No datasets found.</p>
+                    <!-- Main Dashboard Content -->
+                    <div class="flex-1 overflow-hidden grid grid-cols-12 gap-6 p-8">
+
+                        <!-- LEFT PANEL: Gestures List -->
+                        <div
+                            class="col-span-4 flex flex-col gap-4 min-h-0 bg-surface2/30 rounded-2xl border border-white/5 overflow-hidden">
+                            <div class="p-4 border-b border-white/5 flex items-center justify-between shrink-0">
+                                <h4 class="text-xs font-bold text-accent uppercase tracking-wider">Gestures</h4>
+                                <span class="px-2 py-0.5 rounded bg-black/40 text-[10px] font-mono text-gray-400">{{
+                                    gestures.length }} classes</span>
                             </div>
 
-                            <div v-for="g in gestures" :key="g.name"
-                                class="flex items-center justify-between p-4 bg-surface2/50 rounded-lg border border-white/5 hover:border-accent/30 transition-colors">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="w-10 h-10 bg-accent/20 rounded-full flex items-center justify-center text-accent font-bold">
-                                        {{ g.name.substring(0,2).toUpperCase() }}
+                            <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
+                                <div v-for="g in gestures" :key="g.name" @click="selectGestureInDataset(g.name)"
+                                    class="group flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer select-none"
+                                    :class="selectedGestureInDataset === g.name ? 'bg-accent/10 border-accent/40 shadow-glow-sm' : 'bg-black/20 border-white/5 hover:border-white/10 hover:bg-white/5'">
+
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs transition-colors shrink-0"
+                                            :class="selectedGestureInDataset === g.name ? 'bg-accent text-white' : 'bg-surface2 text-gray-500 group-hover:text-gray-300'">
+                                            {{ g.name.substring(0,2).toUpperCase() }}
+                                        </div>
+                                        <div>
+                                            <p class="font-bold text-sm tracking-tight"
+                                                :class="selectedGestureInDataset === g.name ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'">
+                                                {{ g.name }}</p>
+                                            <p class="text-[10px] uppercase font-bold text-gray-600 tracking-widest">{{
+                                                g.samples }} samples</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h4 class="font-bold text-white">{{ g.name }}</h4>
-                                        <p class="text-xs text-gray-400">{{ g.samples }} samples</p>
-                                    </div>
+
+                                    <div v-if="selectedGestureInDataset === g.name"
+                                        class="w-2 h-2 rounded-full bg-accent animate-pulse"></div>
+                                    <i v-else data-lucide="chevron-right"
+                                        class="w-4 h-4 text-gray-700 group-hover:text-gray-500 transition-colors"></i>
                                 </div>
-                                <div class="flex gap-2">
-                                    <button @click="openGallery(g.name)"
-                                        class="px-3 py-1.5 rounded-lg bg-surface hover:bg-surface2 text-xs font-medium text-white border border-white/10 flex items-center gap-1 transition-all">
-                                        <i data-lucide="image" class="w-3 h-3"></i> View Images
+                            </div>
+
+                            <div class="p-4 border-t border-white/5 flex gap-2 shrink-0">
+                                <button
+                                    class="flex-1 py-2.5 bg-blue-600/90 hover:bg-blue-500 text-white text-xs font-bold rounded-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Gesture
+                                </button>
+                                <button
+                                    class="flex-1 py-2.5 bg-surface hover:bg-red-500/20 text-gray-400 hover:text-red-400 border border-white/10 text-xs font-bold rounded-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT PANEL: Images Grid -->
+                        <div class="col-span-8 flex flex-col gap-4 min-h-0">
+
+                            <!-- Toolbar -->
+                            <div
+                                class="flex items-center justify-between shrink-0 bg-surface2/30 p-4 rounded-xl border border-white/5">
+                                <div class="flex items-center gap-2">
+                                    <button @click="selectAllImages"
+                                        class="px-3 py-1.5 rounded-lg bg-surface hover:bg-white/10 border border-white/10 text-[10px] font-bold text-gray-300 transition-all active:scale-95">Select
+                                        All</button>
+                                    <button @click="deselectAllImages"
+                                        class="px-3 py-1.5 rounded-lg bg-surface hover:bg-white/10 border border-white/10 text-[10px] font-bold text-gray-300 transition-all active:scale-95">Deselect
+                                        All</button>
+                                </div>
+
+                                <div class="flex items-center gap-3">
+                                    <span class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">
+                                        {{ selectedImagesIndices.length }} selected
+                                    </span>
+                                    <div class="h-4 w-px bg-white/10"></div>
+                                    <button @click="batchDeleteSamples" :disabled="selectedImagesIndices.length === 0"
+                                        class="px-4 py-1.5 rounded-lg bg-red-500/90 hover:bg-red-500 text-xs font-bold text-white flex items-center gap-2 transition-all active:scale-95 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed">
+                                        <i data-lucide="trash" class="w-3.5 h-3.5"></i> Delete Selected
                                     </button>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="mt-4 pt-4 border-t border-white/10 flex justify-end">
-                            <div class="text-xs text-gray-500">
-                                Total Gestures: {{ gestures.length }}
+                            <!-- Grid Scroll Area -->
+                            <div
+                                class="flex-1 bg-black/40 rounded-2xl border border-white/5 overflow-hidden flex flex-col">
+                                <div v-if="!selectedGestureInDataset"
+                                    class="flex-1 flex flex-col items-center justify-center text-gray-600 gap-4">
+                                    <div class="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center">
+                                        <i data-lucide="image" class="w-8 h-8 opacity-20"></i>
+                                    </div>
+                                    <p class="text-sm font-medium tracking-wide">Select a gesture to view samples</p>
+                                </div>
+                                <div v-else-if="galleryImages.length === 0"
+                                    class="flex-1 flex flex-col items-center justify-center text-gray-600 gap-4">
+                                    <div
+                                        class="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center animate-pulse">
+                                        <i data-lucide="image-off" class="w-8 h-8 opacity-20"></i>
+                                    </div>
+                                    <p class="text-sm font-medium tracking-wide">No images found for this gesture</p>
+                                </div>
+                                <div v-else class="flex-1 overflow-y-auto custom-scrollbar p-6">
+                                    <div class="grid grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                                        <div v-for="(img, idx) in galleryImages" :key="img"
+                                            @click="toggleImageSelection(idx)"
+                                            class="relative aspect-[4/3] rounded-xl overflow-hidden cursor-pointer group transition-all"
+                                            :class="selectedImagesIndices.includes(idx) ? 'ring-2 ring-accent shadow-glow-sm' : 'hover:ring-2 hover:ring-white/20'">
+
+                                            <img :src="img"
+                                                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                loading="lazy">
+
+                                            <!-- Selection Overlay -->
+                                            <div class="absolute inset-0 bg-accent/20 transition-opacity"
+                                                :class="selectedImagesIndices.includes(idx) ? 'opacity-100' : 'opacity-0 group-hover:opacity-40'">
+                                            </div>
+
+                                            <!-- Checkbox Indicator -->
+                                            <div class="absolute top-2 right-2 w-5 h-5 rounded-md border flex items-center justify-center transition-all bg-black/40"
+                                                :class="selectedImagesIndices.includes(idx) ? 'bg-accent border-accent text-white scale-110' : 'border-white/20 text-transparent'">
+                                                <i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>
+                                            </div>
+
+                                            <!-- Tools -->
+                                            <div
+                                                class="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button @click.stop="openLightbox(img)"
+                                                    class="w-7 h-7 bg-black/60 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-accent transition-colors">
+                                                    <i data-lucide="maximize" class="w-3.5 h-3.5"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
+                    <!-- Bottom Statistics Bar -->
+                    <div class="h-20 shrink-0 border-t border-white/10 bg-surface/50 px-8 flex items-center gap-8">
+                        <div class="flex items-center gap-4 border-r border-white/10 pr-8">
+                            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total
+                                Gestures</div>
+                            <div class="text-2xl font-mono font-bold text-white">{{ gestures.length }}</div>
+                        </div>
+                        <div class="flex items-center gap-4 border-r border-white/10 pr-8">
+                            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Images
+                            </div>
+                            <div class="text-2xl font-mono font-bold text-white">{{ datasetStats.totalImages }}</div>
+                        </div>
+                        <div class="flex items-center gap-4 border-r border-white/10 pr-8">
+                            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Avg per
+                                Gesture</div>
+                            <div class="text-2xl font-mono font-bold text-white">{{ (datasetStats.totalImages /
+                                (gestures.length || 1)).toFixed(1) }}</div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Dataset Size
+                            </div>
+                            <div class="text-2xl font-mono font-bold text-accent">{{ datasetStats.displaySize }} MB
+                            </div>
+                        </div>
                     </div>
                 </div>
             </transition>
 
             <!-- PDF Split Modal -->
-            <transition name="pop">
+            <transition name="fade">
                 <div v-if="showSplitPdfModal"
-                    class="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                    <div
-                        class="glass p-8 rounded-3xl border border-white/10 shadow-2xl flex flex-col gap-6 w-full max-w-md animate-pop-in">
-                        <div class="flex items-center justify-between border-b border-white/10 pb-4">
-                            <div class="flex items-center gap-3">
+                    class="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+                    <div class="glass p-8 rounded-3xl border border-white/10 shadow-2xl flex flex-col gap-6 w-full max-w-md animate-pop-in"
+                        @click.stop>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-4">
                                 <div
                                     class="w-12 h-12 rounded-2xl bg-accent/20 flex items-center justify-center shadow-glow">
                                     <i data-lucide="scissors" class="w-6 h-6 text-accent"></i>
@@ -1266,8 +1445,8 @@
                                 </div>
                             </div>
                             <button @click="showSplitPdfModal = false"
-                                class="text-gray-500 hover:text-white transition-colors">
-                                <i data-lucide="x" class="w-6 h-6"></i>
+                                class="p-2 hover:bg-white/10 rounded-full transition-all active:scale-90">
+                                <i data-lucide="x" class="w-6 h-6 text-gray-500 hover:text-white"></i>
                             </button>
                         </div>
 
@@ -1304,7 +1483,7 @@
 
                         <!-- Submit Button -->
                         <button @click="performPdfSplit" :disabled="!selectedPdfFile || isSplitting"
-                            class="relative h-14 bg-accent hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-glow transition-all overflow-hidden">
+                            class="relative h-14 bg-accent hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-glow transition-all overflow-hidden active:scale-[0.98]">
                             <div v-if="isSplitting" class="flex items-center justify-center gap-2">
                                 <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
                                 <span>Processing...</span>
@@ -1353,8 +1532,74 @@
                 const gestureToRename = ref("");
                 const renameInput = ref("");
 
-                // Datset Modal State
+                // Datset Dashboard State
                 const showDatasetModal = ref(false);
+                const selectedGestureInDataset = ref(null);
+                const selectedImagesIndices = ref([]);
+
+                const datasetStats = computed(() => {
+                    const totalImages = gestures.value.reduce((acc, g) => acc + g.samples, 0);
+                    // Approx 15KB per sample image
+                    const sizeMB = (totalImages * 15 / 1024).toFixed(2);
+                    return {
+                        totalImages,
+                        displaySize: sizeMB
+                    };
+                });
+
+                const selectGestureInDataset = (name) => {
+                    selectedGestureInDataset.value = name;
+                    selectedImagesIndices.value = [];
+                    openGallery(name);
+                };
+
+                const toggleImageSelection = (idx) => {
+                    const index = selectedImagesIndices.value.indexOf(idx);
+                    if (index > -1) {
+                        selectedImagesIndices.value.splice(index, 1);
+                    } else {
+                        selectedImagesIndices.value.push(idx);
+                    }
+                };
+
+                const selectAllImages = () => {
+                    selectedImagesIndices.value = galleryImages.value.map((_, i) => i);
+                };
+
+                const deselectAllImages = () => {
+                    selectedImagesIndices.value = [];
+                };
+
+                const batchDeleteSamples = async () => {
+                    const count = selectedImagesIndices.value.length;
+                    if (count === 0) return;
+                    if (!confirm(`Are you sure you want to delete ${count} selected images?`)) return;
+
+                    const gName = selectedGestureInDataset.value;
+                    let successCount = 0;
+
+                    // Sort indices descending to avoid shifting issues if we were deleting by index in a loop,
+                    // but here we are calling openGallery after each? No, that's inefficient.
+                    // We should delete all then refresh once.
+
+                    for (const idx of selectedImagesIndices.value) {
+                        const imgUrl = galleryImages.value[idx];
+                        const filename = imgUrl.split('/').pop();
+                        try {
+                            const res = await fetch(`/api/gestures/${encodeURIComponent(gName)}/samples/${filename}`, {
+                                method: 'DELETE'
+                            });
+                            if (res.ok) successCount++;
+                        } catch (e) {
+                            console.error("Failed to delete sample", filename, e);
+                        }
+                    }
+
+                    selectedImagesIndices.value = [];
+                    openGallery(gName);
+                    fetchData();
+                    alert(`Successfully deleted ${successCount} samples.`);
+                };
 
                 // Training Modal State
                 const showTrainingModal = ref(false);
@@ -1613,6 +1858,15 @@
                 // Optimistic Updates
                 const pendingUpdates = reactive({});
 
+                // Watch for dataset modal to re-render icons
+                watch(showDatasetModal, (val) => {
+                    if (val) {
+                        nextTick(() => {
+                            if (window.lucide) lucide.createIcons();
+                        });
+                    }
+                });
+
                 // Watch for gesture changes to re-render icons
                 watch(gestures, () => {
                     nextTick(() => {
@@ -1620,7 +1874,12 @@
                     });
                 }, { deep: true });
 
-                const lastGestureUpdateTime = ref(0); // Grace period for polling
+                onMounted(() => {
+                    fetchData();
+                    if (window.lucide) lucide.createIcons();
+
+                    setInterval(fetchData, 2000);
+                }); const lastGestureUpdateTime = ref(0); // Grace period for polling
                 const POLLING_GRACE_PERIOD = 2000; // ms
 
                 const trainingStats = ref(null);
@@ -2224,6 +2483,14 @@
 
                     // Dataset
                     showDatasetModal,
+                    selectedGestureInDataset,
+                    selectedImagesIndices,
+                    datasetStats,
+                    selectGestureInDataset,
+                    toggleImageSelection,
+                    selectAllImages,
+                    deselectAllImages,
+                    batchDeleteSamples,
 
                     // Training
                     showTrainingModal,
