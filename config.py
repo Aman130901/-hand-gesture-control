@@ -3,9 +3,9 @@ import os
 class Config:
     # Camera Settings
     CAMERA_INDEX = 0
-    CAMERA_WIDTH = 1280
-    CAMERA_HEIGHT = 720
-    FPS = 30
+    CAMERA_WIDTH = 640
+    CAMERA_HEIGHT = 480
+    FPS = 15
 
     # Model Settings
     MODEL_ASSET_PATH = 'hand_landmarker.task'
@@ -13,6 +13,7 @@ class Config:
     MIN_HAND_DETECTION_CONFIDENCE = 0.5
     MIN_HAND_PRESENCE_CONFIDENCE = 0.5
     MIN_TRACKING_CONFIDENCE = 0.5
+    MODEL_COMPLEXITY = 0 # 0=Lite, 1=Full. Lite is much faster for older CPUs.
 
     # Gesture Logic
     GESTURE_STABILITY_FRAMES = 3  # Frames gesture must be held to confirm

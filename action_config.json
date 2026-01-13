@@ -19,7 +19,7 @@
     "Swipe Right": "volume_down",
     "Two finger": "volume_up",
     "three finger": "volume_mute",
-    "Four finger": "volume_down",
+    "Four finger": "volume_up",
     "indi": "split_pdf",
     "left tgumb": "cmd:vs code"
 }

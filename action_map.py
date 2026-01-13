@@ -150,8 +150,8 @@ class ActionMap:
         tip = landmarks[8]
         
         # Mapping coordinates 0-1 to screen pixels
-        # Mirroring x for intuitive control
-        target_x = (1.0 - tip.x) * self.screen_w
+        # Direct x mapping (0->0, 1->1) for mirrored feed logic
+        target_x = tip.x * self.screen_w
         target_y = tip.y * self.screen_h
         
         # Smoothing
@@ -160,48 +160,52 @@ class ActionMap:
         
         pyautogui.moveTo(self.prev_x, self.prev_y)
 
-    # --- Smart Mouse ---
+    # --- Smart Mouse v2 ---
     def _action_smart_mouse(self, landmarks):
         if not landmarks: return
         
-        # Landmarks
-        thumb_tip = landmarks[4]
-        index_mcp = landmarks[5] # Base of index finger
-        index_tip = landmarks[8]
-        middle_tip = landmarks[12] # Keep for reference if needed
+        # Landmarks:
+        # 4 = Thumb Tip, 8 = Index Tip
+        # 5 = Index MCP (Base of Index), 2 = Thumb MCP
         
-        # Helper for distance
+        thumb_tip = landmarks[4]
+        index_tip = landmarks[8]
+        index_mcp = landmarks[5]
+        
+        # Helper for distance (normalized coords)
         def dist(p1, p2):
             return math.hypot(p1.x - p2.x, p1.y - p2.y)
             
-        # Distances for Curls
-        # Index Curl: Tip (8) close to MCP (5)
-        index_curl_dist = dist(index_tip, index_mcp)
-        # Thumb Curl: Tip (4) close to Index MCP (5)
-        thumb_curl_dist = dist(thumb_tip, index_mcp)
+        # 1. Logic Definitions
+        # "Close Thumb" -> Thumb Tip (4) close to Index Base (5)
+        thumb_closed_dist = dist(thumb_tip, index_mcp)
         
-        # Thresholds (Adjusted for curls)
-        CURL_THRESHOLD = 0.1
+        # "Close Only Index" -> Index Tip (8) curled down to MCP (5)
+        index_closed_dist = dist(index_tip, index_mcp)
         
-        # 1. Right Click (Index Curl)
-        # Priority: Check Right Click first. If Index is curled, we STOP tracking to avoid jitter.
-        if index_curl_dist < CURL_THRESHOLD:
+        # Thresholds
+        CLICK_THRESHOLD = 0.1
+        
+        # 2. Right Click Logic: "Close Only Index"
+        # Condition: Index is curled AND Thumb is NOT curled (open)
+        if index_closed_dist < CLICK_THRESHOLD and thumb_closed_dist > CLICK_THRESHOLD:
             # Ensure Left Click is released if we switch to Right Click (safety)
             if self.is_left_clicked:
                 pyautogui.mouseUp()
                 self.is_left_clicked = False
-                
+
             current_time = time.time()
-            if current_time - self.last_right_click_time > 1.0: # 1s Cooldown
+            if current_time - self.last_right_click_time > 1.0: # Cooldown
                 pyautogui.click(button='right')
                 self.last_right_click_time = current_time
-            return # <--- LOCK CURSOR (Step 2 is skipped)
+            # Locking cursor while clicking prevents jitter
+            return 
 
-        # 2. Track Cursor (Only if Index is NOT curled)
-        self._action_track_cursor(landmarks)
-            
-        # 3. Left Click / Drag (Thumb Curl)
-        if thumb_curl_dist < CURL_THRESHOLD:
+        # 3. Left Click Logic: "Close Thumb"
+        # Condition: Thumb is curled (Index should be open usually for tracking)
+        is_thumb_closed = thumb_closed_dist < CLICK_THRESHOLD
+        
+        if is_thumb_closed:
             if not self.is_left_clicked:
                 pyautogui.mouseDown()
                 self.is_left_clicked = True
@@ -209,6 +213,10 @@ class ActionMap:
             if self.is_left_clicked:
                 pyautogui.mouseUp()
                 self.is_left_clicked = False
+
+        # 4. Cursor Tracking
+        # Only track if not right-clicking (which we returned from already)
+        self._action_track_cursor(landmarks)
 
     def is_continuous(self, gesture_name):
         action = self.mapping.get(gesture_name)

@@ -1,6 +1,6 @@
 # 🖐️ Hand Gesture Control System
 
-A powerful, real-time hand gesture recognition system that allows you to control your Windows desktop using your hands. From volume control to virtual mouse navigation, this project turns your webcam into a sophisticated input device.
+A powerful, real-time hand gesture recognition system that allows you to control your Windows desktop using your hands. From volume control to virtual mouse navigation, this project turns your webcam into a sophisticated input device. Now featuring a professional **Training Dashboard** and **System HUD**.
 
 ---
 
@@ -29,11 +29,11 @@ This project utilizes a multi-stage approach to gesture recognition:
 To run this project, you need:
 -   **Python 3.10+**
 -   A working **Webcam**.
--   **Windows OS** (for system-level actions via `pyautogui`).
+-   **Windows OS** (Required for `pyautogui` and desktop automation).
 
 ---
 
-## 📦 Installation
+## 📦 Installation & Setup
 
 1.  **Clone the Repository:**
     ```bash
@@ -41,56 +41,71 @@ To run this project, you need:
     cd -hand-gesture-control
     ```
 
-2.  **Install Dependencies:**
+2.  **Create a Virtual Environment (Recommended):**
+    ```bash
+    python -m venv venv
+    .\venv\Scripts\activate
+    ```
+
+3.  **Install Dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
-    *Dependencies include: `opencv-python`, `mediapipe`, `pyautogui`, `numpy`, `flask`, `flask-cors`.*
+    *Core dependencies: `opencv-python`, `mediapipe`, `pyautogui`, `flask`, `pypdf`, `pywebview`.*
 
 ---
 
-## 💻 VS Code Setup & Extensions
+## 💻 VS Code Setup (Recommended)
 
-To have the best development experience and ensure the project runs properly in VS Code, install the following extensions:
+To have the best development experience and ensure the project runs properly in VS Code:
 
-### Required Extensions:
-1.  **Python (Microsoft):** Essential for linting, debugging, and IntelliSense.
-2.  **Pylance:** High-performance language support for Python.
-3.  **Live Server:** To run the `frontend/index.html` seamlessly.
-4.  **ESLint / Prettier:** To keep the frontend code clean.
+### 1. Install Extensions
+*   **Python (Microsoft)**
+*   **Pylance** (Language Support)
 
-### Steps to Run in VS Code:
+### 2. Running the Project
 1.  Open the project folder in VS Code.
-2.  Open a terminal in VS Code (`Ctrl + ~`).
-3.  Run the backend:
+2.  Open a terminal (`Ctrl + ~`).
+3.  **Run the Application:**
+    You only need to run one script which handles both the server and the desktop UI.
     ```bash
-    python server.py
+    python desktop_app.py
     ```
-4.  Run the gesture engine:
-    ```bash
-    python main.py
-    ```
-5.  Open `frontend/index.html` and click **"Go Live"** at the bottom right of VS Code to view the control panel.
+    *This will launch the Flask backend and open the Floating Camera Window automatically.*
 
 ---
 
 ## 🎮 How to Use
 
-1.  **Detect Mode (Default):** The app starts by looking for gestures you've already saved.
-2.  **Record Mode:** 
-    *   Press **'r'** to enter recording mode.
-    *   Hold your hand in the desired gesture.
-    *   Press **'s'** to name it, type the name, and hit **Enter**.
-3.  **Map Actions:** 
-    *   Once a gesture is saved, the app will prompt you to assign it an action (e.g., *Volume Up*, *Screenshot*, *Virtual Mouse*).
-    *   Press the corresponding number key to map the action.
+### 1. Dashboard & Controls
+The application interface opens in your browser (default `http://localhost:5000`).
+*   **Gestures Gallery:** View and manage your recorded gestures.
+*   **Training Dashboard:** Visualize model metrics (Loss/Accuracy) and simulate training epochs.
+*   **Settings:** Configure camera resolution and theme.
+
+### 2. Recording Gestures
+1.  Navigate to the **RECORD** tab in the UI (or press 'r').
+2.  Hold your hand in the desired pose.
+3.  Click **"Capture"** or press **Space**.
+4.  Name your gesture (e.g., "Fist", "Peace").
+
+### 3. Mapping Actions
+1.  Go to the **MAPPING** tab.
+2.  Select a gesture from the dropdown.
+3.  Assign a system action (e.g., *Volume Up*, *Scroll Down*, *Virtual Mouse*, *Split PDF*).
+
+### 4. Floating HUD
+A small, always-on-top window shows your camera feed and detected gestures, so you can see what the AI sees while using other apps.
 
 ---
 
-## ✨ Conclusion
-
-The **Hand Gesture Control System** represents a shift towards more natural user interfaces. By combining the robustness of CNN-based hand tracking with a flexible geometric classification engine, it provides a highly customizable and responsive experience. It's not just a tool; it's a foundation for the future of touchless interaction.
+## ✨ Features
+*   **Real-time Hand Tracking**: 60+ FPS performance.
+*   **Custom Gesture Recording**: Create your own gestures in seconds.
+*   **Glassmorphism UI**: Beautiful, modern dark-mode interface.
+*   **Training Simulation**: Visual dashboard for model performance.
+*   **Virtual Mouse**: Control your cursor with your index finger.
 
 ---
 
-**Built with ❤️ for the Developer Community.**
+**Built with ❤️ by Aman.**

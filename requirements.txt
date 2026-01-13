@@ -4,3 +4,4 @@ pyautogui
 numpy
 flask
 flask-cors
+pywebview

@@ -8,22 +8,30 @@ def augment_image(image, thumb_w=None, seed=None, fast=False):
     Hyper-optimized augmentation.
     fast=True: Skips sharpening and noise for maximum throughput.
     """
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
+    # Create local random instances for thread safety
+    rng = random.Random(seed) if seed is not None else random.Random()
+    np_rng = np.random.RandomState(seed) if seed is not None else np.random.RandomState()
         
     h, w = image.shape[:2]
     
+    # Pre-Optimization: Resize FIRST if we are downscaling
+    # This reduces pixels for WarpAffine and Filter2D exponentially
+    if thumb_w and thumb_w < w:
+        aspect = h / w
+        thumb_h = int(thumb_w * aspect)
+        image = cv2.resize(image, (thumb_w, thumb_h), interpolation=cv2.INTER_AREA)
+        h, w = image.shape[:2] # Update dims for subsequent math
+    
     # 1. Unified Affine Transform (Rotation + Scaling)
-    angle = random.uniform(-15, 15)
-    zoom = random.uniform(0.9, 1.1)
+    angle = rng.uniform(-15, 15)
+    zoom = rng.uniform(0.9, 1.1)
     
     M = cv2.getRotationMatrix2D((w/2, h/2), angle, zoom)
     augmented = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
 
     # 2. Unified Color Adjustment (Brightness + Contrast)
-    brightness = random.uniform(0.9, 1.1)
-    contrast = random.uniform(0.9, 1.1)
+    brightness = rng.uniform(0.9, 1.1)
+    contrast = rng.uniform(0.9, 1.1)
     beta = int((brightness - 1.0) * 128)
     augmented = cv2.convertScaleAbs(augmented, alpha=contrast, beta=beta)
 
@@ -33,15 +41,9 @@ def augment_image(image, thumb_w=None, seed=None, fast=False):
         augmented = cv2.filter2D(augmented, -1, sharp_kernel)
 
         # 4. Optional: Subtle Noise
-        if random.random() > 0.8:
-            noise = np.random.normal(0, 2, augmented.shape).astype(np.uint8)
+        if rng.random() > 0.8:
+            noise = np_rng.normal(0, 2, augmented.shape).astype(np.uint8)
             augmented = cv2.add(augmented, noise)
-
-    # 5. Fast Thumbnail (If requested)
-    if thumb_w:
-        aspect = h / w
-        thumb_h = int(thumb_w * aspect)
-        augmented = cv2.resize(augmented, (thumb_w, thumb_h), interpolation=cv2.INTER_AREA)
 
     return augmented
 

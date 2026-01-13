@@ -127,7 +127,105 @@ class GestureEngine:
                 return True
             except Exception as e:
                 logger.error(f"Failed to delete gesture {name}: {e}")
+            except Exception as e:
+                logger.error(f"Failed to delete gesture {name}: {e}")
         return False
+
+    def get_training_stats(self):
+        """
+        Calculates training metrics:
+        1. Model Type: Geometric Vector Classifier (KNN-1)
+        2. Loss: Average Intra-Cluster Variance (lower is better)
+        3. Accuracy: Leave-One-Out Cross-Validation (LOOCV)
+        """
+        stats = {
+            "model_type": "Geometric Vector Classifier (KNN)",
+            "total_samples": 0,
+            "accuracy": 0.0,
+            "loss": 0.0,
+            "breakdown": {}
+        }
+
+        # Flatten all samples for efficient LOOCV
+        all_samples = []
+        labels = []
+        
+        # 1. Calc Variance (Loss) per Gesture
+        total_variance = 0
+        gesture_count = 0
+        
+        for name, samples in self.gestures.items():
+            if not samples: continue
+            
+            # Convert to numpy for math
+            # Handle potential inconsistent list nesting from JSON
+            clean_samples = []
+            for s in samples:
+                 if isinstance(s, list):
+                     clean_samples.append(np.array(s))
+                 else:
+                     clean_samples.append(np.array(s)) # Already array?
+
+            if not clean_samples: continue
+
+            # Stack 
+            data_stack = np.stack(clean_samples)
+            
+            # Variance (Mean squared distance from centroid)
+            centroid = np.mean(data_stack, axis=0)
+            distances = np.linalg.norm(data_stack - centroid, axis=1)
+            variance = np.mean(distances ** 2)
+            
+            total_variance += variance
+            gesture_count += 1
+            
+            # Add to global list for Accuracy check
+            for s in clean_samples:
+                all_samples.append(s)
+                labels.append(name)
+                
+            stats["breakdown"][name] = {
+                "samples": len(samples),
+                "variance": float(variance)
+            }
+
+        stats["total_samples"] = len(all_samples)
+        stats["loss"] = float(total_variance / gesture_count) if gesture_count > 0 else 0.0
+
+        # 2. Calc Accuracy (LOOCV)
+        # For each sample, treat it as "test" and others as "train"
+        # Find nearest neighbor in "others". If label matches, Correct.
+        
+        if len(all_samples) < 2:
+            stats["accuracy"] = 0.0 if not all_samples else 1.0 # Trivial
+            return stats
+
+        correct = 0
+        total = len(all_samples)
+        
+        # Optimize: Compute full distance matrix once? Or simple loop for clarity.
+        # Simple loop is fine for < 1000 samples.
+        for i in range(total):
+            test_sample = all_samples[i]
+            true_label = labels[i]
+            
+            best_dist = float('inf')
+            predicted_label = None
+            
+            for j in range(total):
+                if i == j: continue # Skip self
+                
+                dist = np.linalg.norm(test_sample - all_samples[j])
+                if dist < best_dist:
+                    best_dist = dist
+                    predicted_label = labels[j]
+            
+            if predicted_label == true_label:
+                correct += 1
+                
+        stats["accuracy"] = (correct / total) * 100.0 if total > 0 else 0.0
+        
+        return stats
 
     def find_gesture(self, landmarks):
         """

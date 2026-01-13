@@ -81,6 +81,8 @@ class AppState:
 state = AppState()
 
 # --- Background Thread: Camera & Processing ---
+camera_thread_started = False
+
 def init_landmarker():
     from mediapipe.tasks import python
     from mediapipe.tasks.python import vision
@@ -100,6 +102,12 @@ def init_landmarker():
         return None
 
 def camera_loop():
+    global camera_thread_started
+    if camera_thread_started:
+        logger.warning("Camera loop already running! Skipping duplicate start.")
+        return
+    camera_thread_started = True
+
     logger.info("Starting Camera Loop...")
     
     state.landmarker = init_landmarker()
@@ -308,6 +316,10 @@ def camera_loop():
 def index():
     return app.send_static_file('index.html')
 
+@app.route('/float')
+def float_view():
+    return app.send_static_file('float.html')
+
 @app.route('/video_feed')
 def video_feed():
     def generate():
@@ -385,7 +397,11 @@ def get_gestures():
         result.append({"name": name, "samples": count})
     return jsonify(result)
 
-@app.route('/api/gestures', methods=['POST'])
+@app.route('/api/training/stats')
+def training_stats():
+    return jsonify(state.engine.get_training_stats())
+
+@app.route('/api/gestures', methods=['GET', 'POST'])
 def save_gesture_sample():
     data = request.json
     name = data.get("name")
@@ -488,7 +504,7 @@ def augment_sample_preview(name, filename):
             return jsonify({"error": "Failed to read image"}), 500
 
         # Augment
-        augmented = augment_image(img)
+        augmented = augment_image(img, fast=True)
         
         # Encode to JPEG
         ret, buffer = cv2.imencode('.jpg', augmented)
@@ -554,10 +570,10 @@ def augment_sample_raw(name, filename):
         # Optional Resize for Speed
         thumb_w = request.args.get('w', type=int)
         
-        augmented = augment_image(img, thumb_w=thumb_w, seed=seed)
+        augmented = augment_image(img, thumb_w=thumb_w, seed=seed, fast=True)
         
-        # Balanced quality (90) - 4x faster than 100%
-        quality = 90
+        # Balanced quality (80) - significantly faster for web
+        quality = 80
         ret, buffer = cv2.imencode('.jpg', augmented, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
         if not ret:
             return "Failed to encode image", 500
@@ -718,11 +734,15 @@ def process_split_pdf():
     return jsonify({"error": "Unknown error"}), 500
 
 if __name__ == '__main__':
+    print("--- SERVER STARTUP ---") # Visible console debug
+    logger.info("--- SERVER STARTUP REQUEST ---")
+    
     # Move thread startup here to prevent duplicate execution in Flask debug mode/reloader
     logger.info("Starting Background Camera Thread...")
-    t = threading.Thread(target=camera_loop, daemon=True)
-    t.start()
+    if not camera_thread_started:
+        t = threading.Thread(target=camera_loop, daemon=True)
+        t.start()
     
     logger.info("Starting Flask Server...")
     # Using use_reloader=False if needed, but moving the thread usually fixes the double-start
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True, use_reloader=False)
