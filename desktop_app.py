@@ -27,7 +27,7 @@ class DesktopApi:
                 height=height,
                 frameless=True,
                 on_top=True,
-                resizable=False,
+                resizable=True,
                 transparent=True, # Required for rounded corners
                 min_size=(150, 100),
                 easy_drag=False, # Disable built-in drag to prevent recursion error
@@ -69,6 +69,9 @@ def start_desktop():
         min_size=(1000, 700),
         js_api=api
     )
+
+    # Store window reference in state for pop-up functionality
+    state.desktop_window = window
 
     logger.info("Launching Desktop Window...")
     # Enable debug=True to allow inspection and console access in the desktop app

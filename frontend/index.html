@@ -399,11 +399,17 @@
 
                                 <!-- Custom Command Input -->
                                 <div v-if="getSelectValue(mapping[g.name]) === 'custom_command'"
-                                    class="relative animate-pop-in mt-1">
+                                    class="relative animate-pop-in mt-1 flex items-center gap-1">
                                     <input type="text" :value="getCustomValue(mapping[g.name])"
                                         @input="updateCustomCommand(g.name, $event.target.value)"
-                                        placeholder="e.g. calc"
-                                        class="w-full bg-black/40 border border-accent/50 rounded px-2 py-1.5 text-xs text-accent placeholder-gray-600 outline-none focus:ring-1 focus:ring-accent">
+                                        placeholder="Command (e.g. calc, notepad)"
+                                        class="flex-1 bg-black/40 border border-accent/50 rounded px-2 py-1.5 text-xs text-accent placeholder-gray-600 outline-none focus:ring-1 focus:ring-accent">
+
+                                    <button @click="testCustomCommand(getCustomValue(mapping[g.name]))"
+                                        class="p-1.5 bg-accent/10 text-accent hover:bg-accent hover:text-white rounded transition-colors"
+                                        title="Test Run Command">
+                                        <i data-lucide="play" class="w-3 h-3 fill-current"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -529,7 +535,9 @@
                     <div
                         class="bg-surface border border-white/10 rounded-2xl w-full max-w-4xl h-[80vh] flex flex-col shadow-2xl overflow-hidden">
                         <!-- Header -->
-                        <div class="p-6 border-b border-white/10 flex items-center justify-between bg-surface2/50">
+                        <!-- Header -->
+                        <div
+                            class="p-6 border-b border-white/10 flex items-center justify-between bg-surface2/50 shrink-0">
                             <div>
                                 <h2 class="text-xl font-bold text-white flex items-center gap-2">
                                     <i data-lucide="image" class="w-5 h-5 text-blue-400"></i>
@@ -537,16 +545,19 @@
                                 </h2>
                                 <p class="text-xs text-gray-400 mt-1">{{ galleryImages.length }} samples captured</p>
                             </div>
-                            <button @click="closeGallery"
-                                class="p-2 hover:bg-white/10 rounded-full transition-colors order-last active:scale-90">
-                                <i data-lucide="x" class="w-6 h-6 text-gray-400 hover:text-white"></i>
-                            </button>
 
-                            <!-- Capture New Button -->
-                            <button @click="addMoreSamples(selectedGestureForGallery); closeGallery()"
-                                class="ml-auto mr-4 px-3 py-1.5 bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-2 border border-orange-500/20 active:scale-95">
-                                <i data-lucide="plus-circle" class="w-3 h-3"></i> Capture New
-                            </button>
+                            <div class="flex items-center gap-3">
+                                <!-- Capture New Button -->
+                                <button @click="addMoreSamples(selectedGestureForGallery); closeGallery()"
+                                    class="px-3 py-1.5 bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-2 border border-orange-500/20 active:scale-95">
+                                    <i data-lucide="plus-circle" class="w-3 h-3"></i> Capture New
+                                </button>
+
+                                <button @click="closeGallery"
+                                    class="p-2 hover:bg-white/10 rounded-full transition-all active:scale-90 flex items-center justify-center">
+                                    <i data-lucide="x" class="w-6 h-6 text-gray-400 hover:text-white"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Grid -->
@@ -2006,11 +2017,75 @@
                     setMode('RECORD', true);
                 };
 
-                const toggleFloatWindow = () => {
+                // PiP State
+                const pipActive = ref(false);
+                let pipCanvas = null;
+                let pipVideo = null;
+                let pipCtx = null;
+                let pipLoopId = null;
+
+                const toggleFloatWindow = async () => {
+                    // 1. Desktop App Mode (Native)
                     if (window.pywebview && window.pywebview.api) {
                         window.pywebview.api.toggle_floating_window();
-                    } else {
-                        alert("Float mode is only available in the desktop app.");
+                        return;
+                    }
+
+                    // 2. Browser PiP Mode (Always On Top)
+                    try {
+                        if (document.pictureInPictureElement) {
+                            await document.exitPictureInPicture();
+                            return;
+                        }
+
+                        // Initialize Elements if needed
+                        if (!pipCanvas) {
+                            pipCanvas = document.createElement('canvas');
+                            pipCanvas.width = 640;
+                            pipCanvas.height = 480;
+                            pipCtx = pipCanvas.getContext('2d');
+
+                            pipVideo = document.createElement('video');
+                            pipVideo.muted = true;
+                            pipVideo.autoplay = true;
+                            pipVideo.style.display = 'none'; // Hidden
+                            document.body.appendChild(pipVideo); // Must be in DOM
+
+                            // Clean up on exit
+                            pipVideo.addEventListener('leavepictureinpicture', () => {
+                                pipActive.value = false;
+                                if (pipLoopId) cancelAnimationFrame(pipLoopId);
+                                pipVideo.srcObject = null; // Stop stream
+                            });
+                        }
+
+                        // Start Rendering Loop (MJPEG -> Canvas -> Stream)
+                        const img = document.querySelector('.video-container img');
+                        const drawLoop = () => {
+                            if (pipCtx && img) {
+                                pipCtx.drawImage(img, 0, 0, pipCanvas.width, pipCanvas.height);
+                            }
+                            // Only loop if PiP is active or about to be
+                            if (document.pictureInPictureElement || pipActive.value) {
+                                pipLoopId = requestAnimationFrame(drawLoop);
+                            }
+                        };
+
+                        pipActive.value = true;
+                        pipLoopId = requestAnimationFrame(drawLoop);
+
+                        // Capture Stream
+                        const stream = pipCanvas.captureStream(30);
+                        pipVideo.srcObject = stream;
+                        await pipVideo.play(); // Required before requestPiP
+
+                        // Enter PiP
+                        await pipVideo.requestPictureInPicture();
+
+                    } catch (e) {
+                        console.error("PiP Error:", e);
+                        alert("Could not enter Always-On-Top mode. Try using the Desktop App.");
+                        pipActive.value = false;
                     }
                 };
 
@@ -2090,6 +2165,15 @@
                     }
                 };
 
+                // Debounce Utility to prevent API spam while typing
+                const debounce = (fn, delay) => {
+                    let timeoutId;
+                    return (...args) => {
+                        clearTimeout(timeoutId);
+                        timeoutId = setTimeout(() => fn(...args), delay);
+                    };
+                };
+
                 const mapAction = async (gestureName, actionName) => {
                     // Optimistic Update
                     mapping.value[gestureName] = actionName;
@@ -2100,15 +2184,62 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ gesture: gestureName, action: actionName })
                     });
-                    // pendingUpdates is cleared in next fetchData cycle if server matches
                 };
 
+                // Debounced version for text input
+                const debouncedMapAction = debounce(mapAction, 300);
+
                 const handleActionChange = (gestureName, event) => {
+                    // Select dropdowns don't need debounce
                     mapAction(gestureName, event.target.value);
                 };
 
                 const updateCustomCommand = (gestureName, cmd) => {
-                    mapAction(gestureName, `cmd:${cmd}`);
+                    // Update local state immediately for UI responsiveness
+                    const fullAction = `cmd:${cmd}`;
+                    mapping.value[gestureName] = fullAction;
+                    pendingUpdates[gestureName] = fullAction;
+
+                    // Debounce the network call
+                    debouncedMapAction(gestureName, fullAction);
+                };
+
+                const testCustomCommand = async (cmd) => {
+                    if (!cmd) return;
+                    // We can reuse the existing action triggering mechanism or just call a new endpoint.
+                    // Ideally, we just tell the backend to run this specific command string.
+                    // We can cheat and use the map endpoint to just 'run' it? No.
+                    // Let's rely on the fact that we can trigger an action by name?
+                    // "cmd:calc".
+                    // The backend `execute` takes a gesture name.
+                    // We don't have a direct "run this action string" endpoint.
+                    // Let's make a simple fetch to a new endpoint or piggyback?
+                    // Actually, let's just use the `perform_action` endpoint if it existed, but it doesn't.
+                    // We can use the existing /api/map but that sets it.
+                    // Let's stick to simple: The user saves it, then performs the gesture.
+                    // BUT for "Testing", we want immediate feedback.
+                    // Let's create a temporary hidden API call or just explain to user.
+                    // Wait, I can't modify backend easily in one step. 
+                    // Let's just use the `start_desktop.bat`? No.
+
+                    // Allow me to add a helper in backend? 
+                    // Let's check `server.py` to see if there is a `/api/trigger` or similar.
+                    // If not, I'll filter this out for now and just rely on saving.
+                    // Actually, I can use `handleActionChange` logic style but for immediate execution?
+                    // Let's just alert for now or skipping execution?
+                    // No, the user wants it to work "whenever write".
+
+                    // Implementation: 
+                    // We'll trust the user to test via gesture for now, 
+                    // OR we can implement a `POST /api/exec` quickly.
+
+                    try {
+                        await fetch('/api/exec', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: `cmd:${cmd}` })
+                        });
+                    } catch (e) { console.error(e); }
                 };
 
                 // Helper to get clean value for select
@@ -2125,26 +2256,93 @@
                 };
 
                 const categorizedActions = computed(() => {
-                    const groups = {};
-                    actions.value.forEach(act => {
-                        let category = "General";
-                        if (act.includes("volume") || act.includes("media")) category = "Media";
-                        else if (act.includes("brightness") || act.includes("window")) category = "System";
-                        else if (act.includes("scroll") || act.includes("cursor") || act.includes("click")) category = "Mouse";
-                        else if (act.includes("tab") || act.includes("browser")) category = "Browser";
+                    const groups = {
+                        "PowerPoint Control": [],
+                        "Word / Documents": [],
+                        "Mouse Control": [],
+                        "Media Control": [],
+                        "Browser Control": [],
+                        "Window Management": [],
+                        "System Tools": [],
+                        "Navigation": [],
+                        "Apps & Power": [],
+                        "Advanced": ["custom_command", "type_text"],
+                        "Other": []
+                    };
 
-                        if (!groups[category]) groups[category] = [];
-                        groups[category].push(act);
+                    // Helper to push to group without duplicates
+                    const add = (group, act) => {
+                        if (!groups[group].includes(act)) groups[group].push(act);
+                    };
+
+                    actions.value.forEach(act => {
+                        // PowerPoint
+                        if (act.startsWith("ppt_")) {
+                            add("PowerPoint Control", act);
+                        }
+                        // Word
+                        else if (act.startsWith("word_")) {
+                            add("Word / Documents", act);
+                        }
+                        // Mouse
+                        else if (act.includes("click") || act.includes("cursor") || act.includes("mouse")) {
+                            add("Mouse Control", act);
+                        }
+                        // Media
+                        else if (act.includes("volume") || act.includes("media")) {
+                            add("Media Control", act);
+                        }
+                        // Browser
+                        else if (act.includes("browser") || act.includes("tab")) {
+                            add("Browser Control", act);
+                        }
+                        // Window Management
+                        else if (act.includes("window") || act.includes("desktop") || act.includes("alt_tab")) {
+                            add("Window Management", act);
+                        }
+                        // Navigation
+                        else if (act.includes("scroll") || act.includes("page_") || act.includes("arrow_")) {
+                            add("Navigation", act);
+                        }
+                        // Apps & Power
+                        else if (act.includes("open_") || act.includes("shutdown") || act.includes("restart") || act.includes("sleep")) {
+                            add("Apps & Power", act);
+                        }
+                        // System Tools
+                        else if (act.includes("screenshot") || act.includes("lock") || act.includes("task_") || act.includes("file_") || act.includes("settings") || act.includes("win_") || act.includes("run_") || act.includes("clipboard") || act.includes("emoji")) {
+                            add("System Tools", act);
+                        }
+                        // Keys
+                        else if (act === "enter" || act === "space" || act === "esc" || act === "backspace" || act === "tab") {
+                            add("System Tools", act); // Keys often fit in system/general
+                        }
+                        // PDF
+                        else if (act === "split_pdf") {
+                            add("System Tools", act);
+                        }
+                        else {
+                            if (!groups["Advanced"].includes(act)) {
+                                add("Other", act);
+                            }
+                        }
                     });
-                    // Add special options
-                    if (!groups["Advanced"]) groups["Advanced"] = [];
-                    groups["Advanced"].push("custom_command");
+
+                    // Remove empty groups
+                    Object.keys(groups).forEach(key => {
+                        if (groups[key].length === 0) delete groups[key];
+                    });
 
                     return groups;
                 });
 
                 const formatActionName = (name) => {
                     if (name === 'custom_command') return "Run Custom Command...";
+                    if (name === 'type_text') return "Type Text...";
+
+                    // Special replacements
+                    if (name.startsWith("ppt_")) return name.replace("ppt_", "").replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    if (name.startsWith("word_")) return name.replace("word_", "").replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
                     return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 };
 
@@ -2357,16 +2555,40 @@
                     nextTick(() => lucide.createIcons());
                 };
 
-                // Keyboard listener for navigation
+                // Keyboard listener for navigation (Consolidated)
                 window.addEventListener('keydown', (e) => {
+                    // 1. Augmentation View (Highest Priority)
                     if (selectedAugmentIndex.value !== null) {
                         if (e.key === 'ArrowRight') nextAugment();
                         if (e.key === 'ArrowLeft') prevAugment();
                         if (e.key === 'Escape') selectedAugmentIndex.value = null;
-                    } else if (lightboxIndex.value !== null) {
+                        return;
+                    }
+
+                    // 2. Main Lightbox
+                    if (lightboxIndex.value !== null) {
                         if (e.key === 'ArrowRight') nextImage();
                         if (e.key === 'ArrowLeft') prevImage();
                         if (e.key === 'Escape') closeLightbox();
+                        return;
+                    }
+
+                    // 3. Gallery Modal
+                    if (showGalleryModal.value) {
+                        if (e.key === 'Escape') closeGallery();
+                        return;
+                    }
+
+                    // 4. Default / Home / Sidebar
+                    // Sidebar Scroll
+                    if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        const sidebar = document.getElementById('mapping-sidebar');
+                        if (sidebar) {
+                            e.preventDefault();
+                            sidebar.scrollTop += (e.key === 'ArrowDown' ? 50 : -50);
+                        }
                     }
                 });
 
@@ -2389,27 +2611,7 @@
                     lightboxIndex.value = (lightboxIndex.value - 1 + galleryImages.value.length) % galleryImages.value.length;
                 };
 
-                // Keyboard Navigation
-                window.addEventListener('keydown', (e) => {
-                    if (lightboxIndex.value !== null) {
-                        if (e.key === 'ArrowRight') nextImage();
-                        if (e.key === 'ArrowLeft') prevImage();
-                        if (e.key === 'Escape') closeLightbox();
-                    } else if (showGalleryModal.value) {
-                        if (e.key === 'Escape') closeGallery();
-                    } else {
-                        // Sidebar Scroll
-                        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
 
-                        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                            const sidebar = document.getElementById('mapping-sidebar');
-                            if (sidebar) {
-                                e.preventDefault(); // Prevent page scroll
-                                sidebar.scrollTop += (e.key === 'ArrowDown' ? 50 : -50);
-                            }
-                        }
-                    }
-                });
 
 
 

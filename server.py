@@ -60,6 +60,7 @@ class AppState:
         self.fps = 0
         self.stability_score = 0
         self.theme = "DEFAULT"
+        self.desktop_window = None # Reference to pywebview window
         
         # Training Metrics (Live Feedback)
         self.training_metrics = {
@@ -227,13 +228,27 @@ def camera_loop():
                                         logger.info(f"Action Executed: {action}")
                                         state.last_action_name = action
                                         state.last_action_time = time.time()
+                                        
+                                        # Pop-up on Action (User Request)
+                                        # Only for new One-Shot triggers (excludes continuous tracking/volume)
+                                        if confirmed_gesture != state.last_triggered_gesture:
+                                             if state.desktop_window:
+                                                 try:
+                                                     state.desktop_window.restore()
+                                                     state.desktop_window.maximize()
+                                                     state.desktop_window.focus()
+                                                 except: pass
+                                        
                                         state.last_triggered_gesture = confirmed_gesture
                                 else:
                                     # Still holding the same gesture, do nothing
                                     pass
                     else:
-                        # Hand visible, but no gesture confirmed -> Reset trigger
-                        state.last_triggered_gesture = None
+                        # Hand visible, but no gesture confirmed -> Do NOT reset trigger.
+                        pass
+        
+
+
                         
                 elif state.mode == "RECORD":
                     # Just ready to save
@@ -676,6 +691,15 @@ def map_gesture():
         logger.info(f"Mapped {gesture} -> {action}")
         return jsonify({"status": "success"})
     return jsonify({"error": "Invalid data"}), 400
+
+@app.route('/api/exec', methods=['POST'])
+def exec_action():
+    data = request.json
+    action = data.get("action")
+    if action:
+        result = state.action_map.perform_action(action)
+        return jsonify({"status": "success", "result": result})
+    return jsonify({"error": "No action provided"}), 400
 
 @app.route('/api/split-pdf', methods=['POST'])
 def process_split_pdf():

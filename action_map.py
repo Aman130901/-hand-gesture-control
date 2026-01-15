@@ -7,6 +7,7 @@ import time
 import math
 import tkinter as tk
 from tkinter import filedialog, simpledialog
+from urllib.parse import quote
 from pypdf import PdfReader, PdfWriter
 
 class ActionMap:
@@ -301,18 +302,309 @@ class ActionMap:
         pyautogui.write(text, interval=0.05)
     
     def _execute_custom_cmd(self, cmd):
-        try:
-            subprocess.Popen(cmd, shell=True)
-            return True
-        except Exception as e:
-            print(f"Error running cmd '{cmd}': {e}")
-            return False
-
-    def execute(self, gesture_name, landmarks=None):
-        action = self.mapping.get(gesture_name)
+        # clean command
+        cmd = cmd.strip()
+        lower_cmd = cmd.lower()
         
-        # Debugging
-        print(f"[DEBUG] Gesture: '{gesture_name}' -> Action: '{action}'")
+        print(f"[DEBUG] Custom Command: {cmd}")
+
+        import webbrowser
+        import re
+        import shutil
+
+        # Helper to get specific browser controller
+        def get_browser(txt):
+            try:
+                if 'chrome' in txt:
+                    return webbrowser.get('google-chrome')
+                if 'edge' in txt:
+                    return webbrowser.get('windows-default') 
+                if 'firefox' in txt:
+                    return webbrowser.get('firefox')
+            except:
+                return None
+            return None
+
+        # 1. URL Detection (Prioritize explicit URLs)
+        if re.match(r'^(http|www\.|[a-z0-9]+\.[a-z]{2,})', lower_cmd):
+             if not lower_cmd.startswith('http'):
+                 url = 'https://' + cmd
+             else:
+                 url = cmd
+             webbrowser.open(url)
+             return True
+
+        # 2. Logic for "Close [target]"
+        if lower_cmd.startswith("close ") or lower_cmd.startswith("exit ") or lower_cmd.startswith("kill "):
+            # Extract target
+            if lower_cmd.startswith("close"): target = lower_cmd[6:].strip()
+            elif lower_cmd.startswith("exit"): target = lower_cmd[5:].strip()
+            else: target = lower_cmd[5:].strip()
+            
+            # Map friendly names to Process Names (.exe)
+            # Use 'tasklist' manually to find these if unsure, but standard ones are:
+            proc_map = {
+                "chrome": "chrome.exe",
+                "google chrome": "chrome.exe",
+                "browser": "chrome.exe",
+                "firefox": "firefox.exe",
+                "edge": "msedge.exe",
+                "microsoft edge": "msedge.exe",
+                "notepad": "notepad.exe",
+                "calculator": "CalculatorApp.exe",
+                "calc": "CalculatorApp.exe",
+                "whatsapp": "WhatsApp.exe",
+                "spotify": "Spotify.exe",
+                "vlc": "vlc.exe",
+                "media player": "vlc.exe",
+                "word": "WINWORD.EXE",
+                "winword": "WINWORD.EXE",
+                "microsoft word": "WINWORD.EXE",
+                "excel": "EXCEL.EXE",
+                "microsoft excel": "EXCEL.EXE",
+                "powerpoint": "POWERPNT.EXE",
+                "ppt": "POWERPNT.EXE",
+                "microsoft powerpoint": "POWERPNT.EXE",
+                "vs code": "Code.exe",
+                "vscode": "Code.exe",
+                "code": "Code.exe",
+                "teams": "Teams.exe",
+                "microsoft teams": "Teams.exe",
+                "slack": "slack.exe",
+                "discord": "Discord.exe",
+                "zoom": "Zoom.exe",
+                "paint": "mspaint.exe",
+                "settings": "SystemSettings.exe",
+                "explorer": "explorer.exe",
+                "file explorer": "explorer.exe",
+                "cmd": "cmd.exe",
+                "command prompt": "cmd.exe",
+                "powershell": "powershell.exe",
+                "task manager": "Taskmgr.exe",
+                # UWP Apps (Tricky, sometimes hosted in ApplicationFrameHost, but often have specific exe)
+                "store": "WinStore.App.exe",
+                "microsoft store": "WinStore.App.exe",
+                "photos": "Microsoft.Photos.exe",
+                "camera": "WindowsCamera.exe",
+                "snipping tool": "SnippingTool.exe"
+            }
+            
+            # Get process name
+            proc_name = proc_map.get(target)
+            
+            # If not in map, try using the target as the process name directly (heuristic)
+            if not proc_name:
+                # If valid text, assume .exe
+                if " " not in target:
+                    proc_name = f"{target}.exe"
+            
+            if proc_name:
+                print(f"[INFO] Closing process: {proc_name}")
+                # /IM = Image Name, /F = Force
+                try:
+                    subprocess.Popen(f"taskkill /IM {proc_name} /F", shell=True)
+                    return True
+                except Exception as e:
+                    print(f"Error closing {proc_name}: {e}")
+            
+            # If we couldn't even guess a process name (e.g. multi-word unknown app), 
+            # maybe do nothing or inform? 
+            # For now, if unknown, we just return True to avoid fallback to Search.
+            return True
+
+
+        # 3. Logic for "Open [target] in [browser]"
+        browser_pref = None
+        if "in google chrome" in lower_cmd or "in chrome" in lower_cmd:
+            browser_pref = get_browser("chrome")
+        elif "in firefox" in lower_cmd:
+             browser_pref = get_browser("firefox")
+        elif "in edge" in lower_cmd:
+             browser_pref = get_browser("edge")
+        
+        clean_cmd = lower_cmd
+        clean_cmd = re.sub(r'\s+in\s+(google\s+)?chrome', '', clean_cmd)
+        clean_cmd = re.sub(r'\s+in\s+firefox', '', clean_cmd)
+        clean_cmd = re.sub(r'\s+in\s+(microsoft\s+)?edge', '', clean_cmd)
+        clean_cmd = re.sub(r'\s+in\s+browser', '', clean_cmd)
+        clean_cmd = clean_cmd.strip()
+
+        # 3. Handle "Open [target]" or just "[target]"
+        target = clean_cmd
+        if clean_cmd.startswith("open "):
+            target = clean_cmd[5:].strip()
+
+        # Shortcuts (Mixed Web/App)
+        # For apps that have a web version, we list the LOCAL protocol first or just the name.
+        # Logic below will try local first, then fallback to web if defined.
+        shortcuts = {
+            "youtube": "https://youtube.com",
+            "google": "https://google.com",
+            "facebook": "https://facebook.com",
+            "instagram": "https://instagram.com",
+            "whatsapp": "whatsapp:", 
+            "whatsapp web": "https://web.whatsapp.com", 
+            "whatsweb": "https://web.whatsapp.com",
+            "spotify": "spotify:", 
+            "gmail": "https://mail.google.com",
+            "chatgpt": "https://chatgpt.com",
+            
+            # Dev Tools
+            "vs code": "code",
+            "vscode": "code",
+            "code": "code",
+            "cmd": "cmd",
+            "command prompt": "cmd",
+            "powershell": "powershell",
+
+            # Office
+            "word": "winword",
+            "microsoft word": "winword",
+            "excel": "excel",
+            "microsoft excel": "excel",
+            "powerpoint": "powerpnt",
+            "ppt": "powerpnt",
+            "microsoft powerpoint": "powerpnt",
+            
+            # Utilities
+            "calculator": "calc",
+            "calc": "calc",
+            "notepad": "notepad",
+            "paint": "mspaint",
+            "explorer": "explorer",
+            "file explorer": "explorer",
+            "task manager": "taskmgr",
+            "snipping tool": "snippingtool",
+
+            # Windows Settings / UWP using Protocols (Safest way to launch)
+            "settings": "ms-settings:",
+            "store": "ms-windows-store:",
+            "app store": "ms-windows-store:",
+            "microsoft store": "ms-windows-store:", 
+            "ms store": "ms-windows-store:",
+            "camera": "microsoft.windows.camera:",
+            "photos": "ms-photos:",
+            "clock": "ms-clock:",
+            "alarm": "ms-clock:",
+            "todo": "ms-todo:",
+            "weather": "bingweather:",
+            "maps": "bingmaps:"
+        }
+
+        matched = shortcuts.get(target)
+
+        # --- PATH A: User specified a browser ("in chrome") ---
+        # STRICTLY Web Actions (URL or Search)
+        if browser_pref:
+             # If matched shortcut is a URL, use it
+             if matched and matched.startswith("http"):
+                 url = matched
+             elif '.' in target and ' ' not in target:
+                 url = 'https://' + target
+             else:
+                 # Fallback: Search
+                 url = f"https://www.google.com/search?q={quote(target)}"
+            
+             browser_pref.open(url)
+             return True
+
+        # --- PATH B: No browser specified (Local App preferred) ---
+        
+        # Helper to launch and detect failure
+        def try_launch_local(cmd):
+            try:
+                # STRATEGY: Use PowerShell Start-Process to force focus.
+                # os.startfile often launches in background if Python doesn't have focus.
+                # We also minimize the current window (Python/Console) momentarily maybe? No that's jarring.
+                
+                # Trick: Send an 'Alt' key press to wake up the UI thread? 
+                # Better: Use PowerShell.
+                
+                # Handling shortcuts (protocols or paths) vs raw commands
+                
+                # 1. Try PowerShell Start-Process (most robust for Focus)
+                # We use -PassThru to check existence? No, just run it.
+                # Quotes are tricky.
+                
+                safe_cmd = cmd.replace("'", "''") # Escape for PS
+                
+                # "start" command in shell sometimes works better for focus than direct execution
+                # But os.startfile is basically "start".
+                
+                # Let's try executing via 'start' explicitly in shell, which usually brings to front.
+                # subprocess.Popen(f'start "" "{cmd}"', shell=True)
+                
+                # user reported background issue. Let's try the ForegroundLockTimeout trick? 
+                # Or just use PowerShell which requests focus.
+                
+                # TRICK: Simulate "User Input" to bypass Windows ForegroundLockTimeout.
+                # Windows prevents background apps from stealing focus unless user input is detected.
+                # Pressing 'alt' is harmless (toggles menu bar) but resets the lock timer.
+                try:
+                    pyautogui.press('alt')
+                except:
+                    pass
+                
+                # Small delay to let Windows register the input
+                # time.sleep(0.05) 
+
+                ps_command = f"Start-Process '{safe_cmd}' -WindowStyle Normal"
+                subprocess.Popen(["powershell", "-Command", ps_command], shell=True)
+                
+                return True
+            except Exception as e:
+                # print(f"DEBUG: PS Launch failed: {e}")
+                # Fallback to os.startfile
+                try:
+                    os.startfile(cmd)
+                    return True
+                except:
+                    return False
+
+        # 1. Known Shortcut
+        if matched:
+            # If it's a web link, just open it (default browser)
+            if matched.startswith("http"):
+               webbrowser.open(matched)
+               return True
+            else:
+               # Try local
+               if try_launch_local(matched): return True
+
+        # 2. Check if it's an executable in PATH (Old reliable)
+        if shutil.which(target):
+            if try_launch_local(target): return True
+
+        # 3. Check for URL-like
+        if '.' in target and ' ' not in target:
+             webbrowser.open('https://' + target)
+             return True
+        
+        # 4. Try generic local launch (The "If present, open it" rule)
+        # Even if not in shortcut map, user might say "open figma".
+        # os.startfile("figma") might work if "figma" is in path or registered.
+        if try_launch_local(target):
+             return True
+        
+        # 5. If "whatsapp" specifically failed local `whatsapp:` above (via shortcut),
+        # maybe we should fallback to web version for convenience?
+        if target == "whatsapp" or target == "spotify":
+             # Special handling: User asked for app, app missing.
+             # "sometime the app ... maynot be present ... perform the action"
+             # Opening web version is a good fallback "action".
+             if target == "whatsapp": webbrowser.open("https://web.whatsapp.com"); return True
+             if target == "spotify": webbrowser.open("https://open.spotify.com"); return True
+        
+        # 6. ULTIMATE FALLBACK: Search Google
+        print(f"[INFO] Command '{cmd}' fallback to Search")
+        webbrowser.open(f"https://www.google.com/search?q={quote(cmd)}")
+        return True
+
+    def perform_action(self, action, landmarks=None):
+        """
+        Executes a specific action string directly.
+        """
+        # print(f"[DEBUG] Performing Action: '{action}'")
         
         if not action:
             return None
@@ -329,7 +621,7 @@ class ActionMap:
                     method(landmarks)
                 else:
                     method()
-                print(f"[DEBUG] Executed {method_name}")
+                # print(f"[DEBUG] Executed {method_name}")
                 return action
             except Exception as e:
                 print(f"[ERROR] Execution failed for {method_name}: {e}")
@@ -352,6 +644,11 @@ class ActionMap:
         
         print(f"[DEBUG] No handler found for action: {action}")
         return None
+
+    def execute(self, gesture_name, landmarks=None):
+        action = self.mapping.get(gesture_name)
+        print(f"[DEBUG] Gesture: '{gesture_name}' -> Action: '{action}'")
+        return self.perform_action(action, landmarks)
 
     def get_available_actions(self):
         return [
