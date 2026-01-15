@@ -1,111 +1,91 @@
-# 🖐️ Hand Gesture Control System
+# Hand Gesture Control 🖐️💻
 
-A powerful, real-time hand gesture recognition system that allows you to control your Windows desktop using your hands. From volume control to virtual mouse navigation, this project turns your webcam into a sophisticated input device. Now featuring a professional **Training Dashboard** and **System HUD**.
+Control your Windows desktop entirely with hand gestures! This application uses AI (MediaPipe) to track your hand and trigger custom actions like volume control, virtual mouse, refreshing pages, and taking screenshots.
 
----
+![Hand Gesture Control UI](https://via.placeholder.com/800x450?text=Hand+Gesture+Control+Preview)
 
-## 🚀 Introduction
+## ✨ Features
 
-This project is a bridge between human movement and digital action. By leveraging advanced Computer Vision and Machine Learning, it tracks hand movements and translates them into system-level commands. Whether it's scrolling through a PDF, taking a screenshot, or moving your cursor, it's all handled through intuitive hand gestures.
-
-## 🧠 The AI & Models: How it Works
-
-This project utilizes a multi-stage approach to gesture recognition:
-
-1.  **Hand Landmarking (CNN):** 
-    *   The core detection is powered by **MediaPipe's Hand Landmarker**. 
-    *   It uses a **Convolutional Neural Network (CNN)** to perform "Palm Detection" and "Hand Landmark Localization".
-    *   It maps **21 distinct 3D landmarks** (joints) on your hand in real-time.
-
-2.  **Gesture Classification (Geometric Engine):**
-    *   Instead of a heavy RNN (Recurrent Neural Network) which is typically used for sequences, we use a **Custom Geometric Engine**.
-    *   **Logic:** It calculates the **Euclidean Distance** between normalized angle vectors of your hand's joints. 
-    *   **Efficiency:** This makes it extremely fast and allows users to record and save new gestures instantly without needing to retrain a heavy deep-learning model.
+- **Virtual Mouse**: Move cursor, click, and drag using your hand.
+- **Custom Gestures**: Train your own gestures (e.g., "Peace Sign", "Fist", "Open Palm") and map them to ANY key or shortcut.
+- **Floating Camera**: "Always on Top" floating window to see your hand status while using other apps.
+- **Premium UI**: Beautiful Glassmorphism dark mode design.
+- **Pop-up Feedback**: Main window automatically restores when an action is triggered.
+- **Privacy First**: All processing happens locally on your machine.
 
 ---
 
-## 🛠️ Prerequisites
+## 🛠️ Installation & Setup
 
-To run this project, you need:
--   **Python 3.10+**
--   A working **Webcam**.
--   **Windows OS** (Required for `pyautogui` and desktop automation).
+### Prerequisites
+1. **Python 3.8** or higher installed on your system.
+2. A working **Webcam**.
+3. **Windows 10/11** (for best desktop automation support).
+
+### Step 1: Clone or Download
+Clone this repository or download the ZIP file and extract it.
+```bash
+git clone https://github.com/Aman130901/-hand-gesture-control.git
+cd -hand-gesture-control
+```
+
+### Step 2: Install Dependencies
+Open a terminal (Command Prompt or PowerShell) in the project folder and run:
+```bash
+pip install -r requirements.txt
+```
+*Note: If you encounter permission errors, try running as Administrator.*
+
+**Dependencies included:**
+- `opencv-python` (Computer Vision)
+- `mediapipe` (Hand Tracking)
+- `pyautogui` (Desktop Automation)
+- `flask` & `flask-cors` (Backend Server)
+- `pywebview` (Desktop App Wrapper)
 
 ---
 
-## 📦 Installation & Setup
+## 🚀 How to Run
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/Aman130901/-hand-gesture-control.git
-    cd -hand-gesture-control
-    ```
+### Method 1: The Easy Way (Recommended)
+Double-click the **`start_desktop.bat`** file in the project folder. 
+This will automatically launch the backend server and the desktop application window.
 
-2.  **Create a Virtual Environment (Recommended):**
-    ```bash
-    python -m venv venv
-    .\venv\Scripts\activate
-    ```
-
-3.  **Install Dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-    *Core dependencies: `opencv-python`, `mediapipe`, `pyautogui`, `flask`, `pypdf`, `pywebview`.*
-
----
-
-## 💻 VS Code Setup (Recommended)
-
-To have the best development experience and ensure the project runs properly in VS Code:
-
-### 1. Install Extensions
-*   **Python (Microsoft)**
-*   **Pylance** (Language Support)
-
-### 2. Running the Project
-1.  Open the project folder in VS Code.
-2.  Open a terminal (`Ctrl + ~`).
-3.  **Run the Application:**
-    You only need to run one script which handles both the server and the desktop UI.
-    ```bash
-    python desktop_app.py
-    ```
-    *This will launch the Flask backend and open the Floating Camera Window automatically.*
+### Method 2: Manual Start
+Open your terminal in the project directory and run:
+```bash
+python desktop_app.py
+```
 
 ---
 
 ## 🎮 How to Use
 
-### 1. Dashboard & Controls
-The application interface opens in your browser (default `http://localhost:5000`).
-*   **Gestures Gallery:** View and manage your recorded gestures.
-*   **Training Dashboard:** Visualize model metrics (Loss/Accuracy) and simulate training epochs.
-*   **Settings:** Configure camera resolution and theme.
-
-### 2. Recording Gestures
-1.  Navigate to the **RECORD** tab in the UI (or press 'r').
-2.  Hold your hand in the desired pose.
-3.  Click **"Capture"** or press **Space**.
-4.  Name your gesture (e.g., "Fist", "Peace").
-
-### 3. Mapping Actions
-1.  Go to the **MAPPING** tab.
-2.  Select a gesture from the dropdown.
-3.  Assign a system action (e.g., *Volume Up*, *Scroll Down*, *Virtual Mouse*, *Split PDF*).
-
-### 4. Floating HUD
-A small, always-on-top window shows your camera feed and detected gestures, so you can see what the AI sees while using other apps.
+1. **Detection Mode**: The app starts in detection mode.
+   - **Point**: Move the mouse cursor.
+   - **Pinch (Index+Thumb)**: Left Click / Drag.
+   - **Pinch (Middle+Thumb)**: Right Click.
+2. **Gesture Mapping**:
+   - Go to the **Train** tab to record new gestures.
+   - In the sidebar, select a gesture and assign an action (e.g., `volume_up`, `screenshot`, `win_tab`).
+3. **Floating Window**:
+   - Click the **FLOAT** button in the top bar to detach the camera view.
+   - Drag the floating window anywhere on your screen.
 
 ---
 
-## ✨ Features
-*   **Real-time Hand Tracking**: 60+ FPS performance.
-*   **Custom Gesture Recording**: Create your own gestures in seconds.
-*   **Glassmorphism UI**: Beautiful, modern dark-mode interface.
-*   **Training Simulation**: Visual dashboard for model performance.
-*   **Virtual Mouse**: Control your cursor with your index finger.
+## ❓ Troubleshooting
+
+- **Camera not opening?**
+  - Ensure no other app (Zoom, Teams) is using the camera.
+  - Check `config.py` to change `CAMERA_INDEX` if you have multiple cameras.
+- **Gestures not triggering?**
+  - Ensure your hand is well-lit.
+  - Retrain the gesture in the "Train" tab if detection is spotty.
+- **Mouse not moving?**
+  - Ensure "Virtual Mouse" mode is active (Green Button).
 
 ---
 
-**Built with ❤️ by Aman.**
+## 📜 License
+This project is open source. Feel free to modify and distribute!
