@@ -9,11 +9,13 @@ import tkinter as tk
 from tkinter import filedialog, simpledialog
 from urllib.parse import quote
 from pypdf import PdfReader, PdfWriter
+from voice_engine import VoiceEngine
 
 class ActionMap:
     def __init__(self, config_file="action_config.json"):
         self.config_file = config_file
         self.mapping = self.load_mapping()
+        self.voice_engine = VoiceEngine()
         
         # Configuration for pyautogui
         pyautogui.FAILSAFE = False # Prevent fail-safe corner triggers which can be annoying with hand tracking
@@ -296,6 +298,14 @@ class ActionMap:
         """
         # We just return the action name, the server/frontend will handle the rest.
         return "split_pdf"
+
+    # --- Voice Typing ---
+    def _action_voice_type(self):
+        # Run in a separate thread so we don't block the main loop
+        import threading
+        t = threading.Thread(target=self.voice_engine.listen_and_type)
+        t.daemon = True
+        t.start()
     
     # --- Custom Logic Helpers ---
     def _execute_type_text(self, text):
@@ -699,5 +709,8 @@ class ActionMap:
             "custom_command", "type_text",
             
             # PDF
-            "split_pdf"
+            "split_pdf",
+
+            # Voice
+            "voice_type"
         ]

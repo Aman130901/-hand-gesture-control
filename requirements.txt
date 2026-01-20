@@ -5,3 +5,6 @@ numpy
 flask
 flask-cors
 pywebview
+SpeechRecognition
+pyaudio
+pywin32

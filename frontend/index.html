@@ -286,21 +286,25 @@
                 <div class="flex gap-2">
 
 
-                    <button @click="setMode(status.mode === 'MOUSE' ? 'DETECT' : 'MOUSE')"
-                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 border active:scale-95"
+                    <button @click="setMode(status.mode === 'MOUSE' ? 'IDLE' : 'MOUSE')"
+                        class="h-8 px-3 rounded-lg font-bold text-xs transition-all flex items-center gap-2 border active:scale-95"
                         :class="status.mode === 'MOUSE' 
-                            ? 'bg-emerald-500 text-white border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
-                            : 'bg-surface hover:bg-white/10 text-gray-400 border-white/10'">
-                        <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i>
-                        {{ status.mode === 'MOUSE' ? 'MOUSE ACTIVE' : 'VIRTUAL MOUSE' }}
+                            ? 'bg-red-500 text-white border-red-500 shadow-glow' 
+                            : 'bg-emerald-500 text-white border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]'">
+                        <i :data-lucide="status.mode === 'MOUSE' ? 'square' : 'mouse-pointer-2'" class="w-3 h-3"></i>
+                        {{ status.mode === 'MOUSE' ? 'STOP MOUSE' : 'START VC MOUSE' }}
                     </button>
 
 
-                    <button @click="setMode('DETECT')"
-                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2 border border-white/10 active:scale-95"
-                        :class="status.mode === 'DETECT' ? 'bg-red-500 text-white shadow-glow border-red-500' : 'bg-surface hover:bg-white/10 text-gray-400'">
-                        <i data-lucide="square" class="w-4 h-4 fill-current"></i>
-                        STOP
+
+
+                    <!-- Smart Voice Toggle -->
+                    <!-- Smart Voice Toggle -->
+                    <button @click="toggleSmartVoice"
+                        class="h-8 px-3 rounded-lg font-bold text-xs transition-all flex items-center gap-2 border border-white/10 active:scale-95"
+                        :class="status.voice_active ? 'bg-indigo-500 text-white shadow-glow border-indigo-500' : 'bg-surface hover:bg-white/10 text-gray-400'">
+                        <i data-lucide="mic" class="w-3 h-3 fill-current"></i>
+                        {{ status.voice_active ? 'VOICE ON' : 'VOICE OFF' }}
                     </button>
 
                     <button @click="showSettingsModal = true"
@@ -1518,9 +1522,11 @@
                 const status = reactive({
                     mode: 'DETECT',
                     detected_gesture: null,
-                    last_action: null,
+                    last_action: '',
                     last_action_time: 0,
                     is_hand_visible: false,
+                    voice_active: false,
+                    fps: 0,
                     map_mode_active: false,
                     theme: 'DEFAULT',
                     training_metrics: {
@@ -1964,6 +1970,12 @@
                 const lastModeSetTime = ref(0); // Prevent polling race condition
 
                 const setMode = async (mode, preserveName = false) => {
+                    if (mode === 'RECORD' && status.mode !== 'RECORD') {
+                        // Reset ranges
+                        status.training_metrics.size_range = [1.0, 0.0];
+                        status.training_metrics.angle_range = [180.0, -180.0];
+                    }
+
                     // Optimistic Update
                     status.mode = mode;
                     lastModeSetTime.value = Date.now();
@@ -1976,6 +1988,22 @@
                     if (!preserveName) {
                         newGestureName.value = "";
                         isAddingToExisting.value = false;
+                    }
+                };
+                const toggleSmartVoice = async () => {
+                    const newState = !status.voice_active;
+                    try {
+                        const res = await fetch('/api/voice/toggle', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ enabled: newState })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            status.voice_active = data.enabled;
+                        }
+                    } catch (e) {
+                        console.error("Voice toggle failed", e);
                     }
                 };
 
@@ -2214,17 +2242,6 @@
                     // The backend `execute` takes a gesture name.
                     // We don't have a direct "run this action string" endpoint.
                     // Let's make a simple fetch to a new endpoint or piggyback?
-                    // Actually, let's just use the `perform_action` endpoint if it existed, but it doesn't.
-                    // We can use the existing /api/map but that sets it.
-                    // Let's stick to simple: The user saves it, then performs the gesture.
-                    // BUT for "Testing", we want immediate feedback.
-                    // Let's create a temporary hidden API call or just explain to user.
-                    // Wait, I can't modify backend easily in one step. 
-                    // Let's just use the `start_desktop.bat`? No.
-
-                    // Allow me to add a helper in backend? 
-                    // Let's check `server.py` to see if there is a `/api/trigger` or similar.
-                    // If not, I'll filter this out for now and just rely on saving.
                     // Actually, I can use `handleActionChange` logic style but for immediate execution?
                     // Let's just alert for now or skipping execution?
                     // No, the user wants it to work "whenever write".
@@ -2266,7 +2283,7 @@
                         "System Tools": [],
                         "Navigation": [],
                         "Apps & Power": [],
-                        "Advanced": ["custom_command", "type_text"],
+                        "Advanced": ["custom_command", "type_text", "voice_type"],
                         "Other": []
                     };
 
@@ -2338,6 +2355,7 @@
                 const formatActionName = (name) => {
                     if (name === 'custom_command') return "Run Custom Command...";
                     if (name === 'type_text') return "Type Text...";
+                    if (name === 'voice_type') return "Voice Typing (Dictate)";
 
                     // Special replacements
                     if (name.startsWith("ppt_")) return name.replace("ppt_", "").replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -2641,6 +2659,7 @@
                     newGestureName,
                     isAddingToExisting, // Export
                     setMode,
+                    toggleSmartVoice,
                     setTheme,
                     saveSample,
                     deleteGesture,

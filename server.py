@@ -36,7 +36,7 @@ class AppState:
     def __init__(self):
         self.lock = threading.Lock()
         
-        self.mode = "DETECT" # DETECT, RECORD
+        self.mode = "DETECT" # DETECT, RECORD, IDLE
         
         # Camera Data
         self.latest_frame_jpg = None
@@ -257,6 +257,10 @@ def camera_loop():
                     # Virtual Mouse Mode
                     state.action_map._action_smart_mouse(state.latest_landmarks)
                     state.last_action_name = "Virtual Mouse Active"
+                
+                elif state.mode == "IDLE":
+                    # Do nothing
+                    state.last_action_name = "Paused"
             else:
                 state.current_gesture = None
                 state.last_triggered_gesture = None # Reset when hand lost
@@ -361,14 +365,16 @@ def get_status():
             "stability_score": state.stability_score,
             "theme": state.theme,
             "training_metrics": state.training_metrics,
-            "camera_config": state.camera_config
+            "training_metrics": state.training_metrics,
+            "camera_config": state.camera_config,
+            "voice_auto_active": state.action_map.voice_engine.auto_mode_active
         })
 
 @app.route('/api/mode', methods=['POST'])
 def set_mode():
     data = request.json
     new_mode = data.get("mode")
-    if new_mode in ["DETECT", "RECORD", "MOUSE"]:
+    if new_mode in ["DETECT", "RECORD", "MOUSE", "IDLE"]:
         with state.lock:
             state.mode = new_mode
             if new_mode == "RECORD":
@@ -756,6 +762,19 @@ def process_split_pdf():
         return jsonify({"error": str(e)}), 500
     
     return jsonify({"error": "Unknown error"}), 500
+
+@app.route('/api/voice/toggle', methods=['POST'])
+def toggle_voice_auto():
+    data = request.json
+    enabled = data.get("enabled", False)
+    
+    engine = state.action_map.voice_engine
+    if enabled:
+        engine.start_auto_mode()
+    else:
+        engine.stop_auto_mode()
+        
+    return jsonify({"status": "success", "enabled": engine.auto_mode_active})
 
 if __name__ == '__main__':
     print("--- SERVER STARTUP ---") # Visible console debug

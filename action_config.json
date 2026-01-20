@@ -17,10 +17,10 @@
     "parrot": "cmd:notepad",
     "Swipe Left": "volume_up",
     "Swipe Right": "volume_down",
-    "Two finger": "cmd:open Linkedin.com in google chrome",
-    "three finger": "open_notepad",
+    "Two finger": "cmd:open linkedin.com in google chrome",
+    "three finger": "split_pdf",
     "Four finger": "volume_up",
     "indi": "split_pdf",
     "left tgumb": "cmd:vs code",
-    "Index finger": "open_notepad"
+    "Index finger": "shutdown"
 }
